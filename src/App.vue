@@ -117,6 +117,26 @@
       <br><br>
       Raw Transaction: {{ signedTx.hex }}
     </div>
+    <hr>
+    <div>
+      <h3>
+        Finalise Transaction
+      </h3>
+      <p>
+        This tool finalises a transaction that was previously signed.
+      </p>
+      Transaction to finalise: <textarea
+        class="pubkey"
+        v-model="finalisedTx.rawtx"
+      />
+      <br>
+      <br>
+      <button @click="finaliseTransaction">
+        Finalise!
+      </button>
+      <br><br>
+      Finalised Transaction: {{ finalisedTx.hex }}
+    </div>
   </div>
 </template>
 
@@ -150,6 +170,10 @@ export default {
         rawtx: '',
         privatekey: '',
         redeemScript: '',
+        hex: '',
+      },
+      finalisedTx: {
+        rawtx: '',
         hex: '',
       }
     }
@@ -265,12 +289,24 @@ export default {
           console.log(txb.tx);
           console.log(hash);
           const tx = await axios.get(`https://explorer.zel.cash/api/tx/${hash}`);
-          const value =  Math.round(Number(tx.data.vout[index].value) * 1e8);
+          const value = Math.round(Number(tx.data.vout[index].value) * 1e8);
           txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
           i += 1;
         }
         const tx = txb.buildIncomplete();
         this.signedTx.hex = tx.toHex()
+      } catch (e) {
+        console.log(e);
+        this.signedTx.hex = e.message;
+      }
+    },
+    finaliseTransaction() {
+      try {
+        const network = bitgotx.networks.zelcash;
+        const txhex = this.finalisedTx.rawtx;
+        const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
+        const tx = txb.build();
+        this.finalisedTx.hex = tx.toHex()
       } catch (e) {
         console.log(e);
         this.signedTx.hex = e.message;

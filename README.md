@@ -1,7 +1,5 @@
 # zelmultisig
 
-WIP
-
 ## Project setup
 ```
 yarn install
