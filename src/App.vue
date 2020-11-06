@@ -257,7 +257,7 @@ export default {
         const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
         txb.setVersion(4);
         txb.setVersionGroupId(0x892F2085);
-        history.forEach((x) => txb.addInput(x.txid, x.vout, x.satoshis));
+        history.forEach((x) => txb.addInput(x.txid, x.vout));
         recipients.forEach((x) => txb.addOutput(x.address, x.satoshis));
         if (this.unsignedTx.message !== '') {
           const data = Buffer.from(this.unsignedTx.message, "utf8");
