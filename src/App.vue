@@ -218,7 +218,7 @@ export default {
     async buildUnsignedRawTx() {
       try {
         const network = bitgotx.networks.zelcash;
-        const utx = await axios.get(`https://explorer.zel.cash/api/addr/${this.unsignedTx.myAddress}/utxo`);
+        const utx = await axios.get(`https://explorer.runonflux.io/api/addr/${this.unsignedTx.myAddress}/utxo`);
         const utxos = utx.data;
         let satoshisSoFar = 0;
         let history = [];
@@ -288,7 +288,7 @@ export default {
           const index = txb.tx.ins[i].index;
           console.log(txb.tx);
           console.log(hash);
-          const tx = await axios.get(`https://explorer.zel.cash/api/tx/${hash}`);
+          const tx = await axios.get(`https://explorer.runonflux.io/api/tx/${hash}`);
           const value = Math.round(Number(tx.data.vout[index].value) * 1e8);
           txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
           i += 1;
