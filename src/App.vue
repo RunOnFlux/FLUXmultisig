@@ -93,7 +93,7 @@
         Sign Transaction
       </h3>
       <p>
-        This tool signs a transaction that is being performed from a multisig address with your private key. Fee is 10000 satoshis.
+        This tool signs a transaction that is being performed from a multisig address with your private key. Fee is 0 satoshis.
       </p>
       My Private Key: <input
         class="pubkey"
@@ -223,7 +223,7 @@ export default {
         let satoshisSoFar = 0;
         let history = [];
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount) * 1e8);
-        const satoshisfeesToSend = 1000;
+        const satoshisfeesToSend = 0;
         let recipients = [{
           address: this.unsignedTx.receiver,
           satoshis: satoshisToSend,
