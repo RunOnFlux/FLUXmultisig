@@ -23,19 +23,19 @@
   },
   "homepage": "https://github.com/TheTrunk/zelmultisig#readme",
   "dependencies": {
-    "axios": "^0.19.2",
-    "bitgo-utxo-lib": "https://github.com/zelcash/bitgo-utxo-lib",
-    "core-js": "^3.6.4",
-    "vue": "^2.6.11"
+    "axios": "^0.21.1",
+    "bitgo-utxo-lib": "https://github.com/zelcore-io/bitgo-utxo-lib",
+    "core-js": "^3.16.0",
+    "vue": "^2.6.14"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.3.0",
-    "@vue/cli-plugin-eslint": "^4.3.0",
-    "@vue/cli-service": "^4.3.0",
+    "@vue/cli-plugin-babel": "^4.5.13",
+    "@vue/cli-plugin-eslint": "^4.5.13",
+    "@vue/cli-service": "^4.5.13",
     "babel-eslint": "^10.1.0",
-    "eslint": "^6.7.2",
-    "eslint-plugin-vue": "^6.2.2",
-    "vue-template-compiler": "^2.6.11"
+    "eslint": "^7.32.0",
+    "eslint-plugin-vue": "^7.15.0",
+    "vue-template-compiler": "^2.6.14"
   },
   "eslintConfig": {
     "root": true,
