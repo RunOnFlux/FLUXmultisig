@@ -1,7 +1,9 @@
 <template>
   <div id="app">
-
-    <h1>Welcome to ZEL multisig</h1>
+    <button @click="isTestnet = !isTestnet">
+        USING {{ isTestnet ? 'TESTNET' : 'MAINNET' }}. Click to use {{ isTestnet ? 'MAINNET' : 'TESTNET' }}
+      </button>
+    <h1>Welcome to FLUX multisig</h1>
     <hr>
     <h3>
       Keypair generation tool
@@ -175,12 +177,15 @@ export default {
       finalisedTx: {
         rawtx: '',
         hex: '',
-      }
+      },
+      isTestnet: false,
+      mainnetExplorer: 'https://explorer.runonflux.io',
+      testnetExplorer: 'https://testnet.runonflux.io',
     }
   },
   methods: {
     generateKeypair() {
-      const network = bitgotx.networks.zelcash
+      const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash
       const keyPair = bitgotx.ECPair.makeRandom({ network });
       // console.log(keyPair);
       const pubKey = keyPair.getPublicKeyBuffer().toString('hex');
@@ -202,7 +207,7 @@ export default {
         const redeemScriptHex = redeemScript.toString('hex');
         const scriptPubKey = bitgotx.script.scriptHash.output.encode(bitgotx.crypto.hash160(redeemScript));
 
-        const network = bitgotx.networks.zelcash
+        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash
         const address = bitgotx.address.fromOutputScript(scriptPubKey, network);
         this.multisig.address = address;
         this.multisig.redeemScript = redeemScriptHex;
@@ -217,8 +222,9 @@ export default {
     },
     async buildUnsignedRawTx() {
       try {
-        const network = bitgotx.networks.zelcash;
-        const utx = await axios.get(`https://explorer.runonflux.io/api/addr/${this.unsignedTx.myAddress}/utxo`);
+        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash
+        const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+        const utx = await axios.get(`${explorer}/api/addr/${this.unsignedTx.myAddress}/utxo`);
         const utxos = utx.data;
         let satoshisSoFar = 0;
         let history = [];
@@ -275,7 +281,7 @@ export default {
     },
     async signTransaction() {
       try {
-        const network = bitgotx.networks.zelcash;
+        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash
         const hashType = bitgotx.Transaction.SIGHASH_ALL;
         const txhex = this.signedTx.rawtx;
         const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
@@ -288,7 +294,8 @@ export default {
           const index = txb.tx.ins[i].index;
           console.log(txb.tx);
           console.log(hash);
-          const tx = await axios.get(`https://explorer.runonflux.io/api/tx/${hash}`);
+          const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+          const tx = await axios.get(`${explorer}/api/tx/${hash}`);
           const value = Math.round(Number(tx.data.vout[index].value) * 1e8);
           txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
           i += 1;
@@ -302,7 +309,7 @@ export default {
     },
     finaliseTransaction() {
       try {
-        const network = bitgotx.networks.zelcash;
+        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash
         const txhex = this.finalisedTx.rawtx;
         const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
         const tx = txb.build();

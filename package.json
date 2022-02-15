@@ -1,7 +1,7 @@
 {
-  "name": "zelmultisig",
-  "version": "1.1.0",
-  "description": "ZELmultisig is a tool for easy operations with multisignature addresses",
+  "name": "fluxmultisig",
+  "version": "1.2.0",
+  "description": "FLUX multisig is a tool for easy operations with multisignature addresses",
   "main": "index.js",
   "scripts": {
     "serve": "vue-cli-service serve",
@@ -13,7 +13,7 @@
     "url": "git+https://github.com/TheTrunk/zelmultisig.git"
   },
   "keywords": [
-    "ZEL",
+    "FLUX",
     "multisig"
   ],
   "author": "Tadeas Kmenta",
@@ -23,15 +23,15 @@
   },
   "homepage": "https://github.com/TheTrunk/zelmultisig#readme",
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^0.26.0",
     "bitgo-utxo-lib": "https://github.com/zelcore-io/bitgo-utxo-lib",
-    "core-js": "^3.16.0",
+    "core-js": "^3.21.0",
     "vue": "^2.6.14"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.5.13",
-    "@vue/cli-plugin-eslint": "^4.5.13",
-    "@vue/cli-service": "^4.5.13",
+    "@vue/cli-plugin-babel": "^4.5.15",
+    "@vue/cli-plugin-eslint": "^4.5.15",
+    "@vue/cli-service": "^4.5.15",
     "babel-eslint": "^10.1.0",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^7.15.0",
