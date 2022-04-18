@@ -62,6 +62,13 @@
       <p>
         This tool helps you build an unsigned transaction.
       </p>
+
+      <p>
+        Avoid Flux Node Collateral Amounts: <input type="checkbox" id="checkbox" v-model="avoidFluxNodeAmounts">
+        <br>
+        Select All Flux (Ignores the Amount - Max 2000 inputs): <input type="checkbox" id="checkbox" v-model="sendAllFlux">
+      </p>
+      <br>
       My Address: <input
         class="pubkey"
         v-model="unsignedTx.myAddress"
@@ -75,6 +82,7 @@
       Amount to Send: <input
         class="pubkey"
         v-model="unsignedTx.amount"
+        :disabled="sendAllFlux"
       >
       <br>
       Message to Send: <input
@@ -178,6 +186,8 @@ export default {
         rawtx: '',
         hex: '',
       },
+      avoidFluxNodeAmounts: true,
+      sendAllFlux: false,
       isTestnet: false,
       mainnetExplorer: 'https://explorer.runonflux.io',
       testnetExplorer: 'https://testnet.runonflux.io',
@@ -234,8 +244,13 @@ export default {
           address: this.unsignedTx.receiver,
           satoshis: satoshisToSend,
         }];
+        var count = 0;
         for (let i = 0; i < utxos.length; i += 1) {
           if (utxos[i].height !== 0) {
+
+            if (this.avoidFluxNodeAmounts && (utxos[i].satoshis == 4000000000000 || utxos[i].satoshis == 1250000000000 || utxos[i].satoshis == 100000000000))
+              continue;
+
             history = history.concat({
               txid: utxos[i].txid,
               vout: utxos[i].vout,
@@ -244,21 +259,42 @@ export default {
             });
 
             satoshisSoFar += utxos[i].satoshis;
-            if (satoshisSoFar >= satoshisToSend + satoshisfeesToSend) {
-              break;
+            count++;
+            if (this.sendAllFlux) {
+              if (count >= 2000) {
+                break;
+              }
+              continue;
+            } else {
+              if (satoshisSoFar >= satoshisToSend + satoshisfeesToSend) {
+                break;
+              }
             }
           }
         }
-        const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
-        if (refundSatoshis > 0) {
-          recipients = recipients.concat({
-            address: this.unsignedTx.myAddress,
-            satoshis: refundSatoshis,
-          });
-        }
-        if (refundSatoshis < 0) {
-          this.unsignedTx.hex = 'Insufficient amount';
-          return;
+
+        if (this.sendAllFlux) {
+          // Update the recipient to the full flux amount 
+          // Overrides the amount that was put in the Amount to Send textbox
+          recipients[0].satoshis = satoshisSoFar;
+
+          // We don't have any change when sendAllFlux is true
+
+          // Not sure what to do with satoshisfeesToSend - as it is passed to bitgotx.TransactionBuilder
+          // Do all these transactions have a fee amount of 0?
+
+        } else {
+          const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
+          if (refundSatoshis > 0) {
+            recipients = recipients.concat({
+              address: this.unsignedTx.myAddress,
+              satoshis: refundSatoshis,
+            });
+          }
+          if (refundSatoshis < 0) {
+            this.unsignedTx.hex = 'Insufficient amount';
+            return;
+          }
         }
         const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
         txb.setVersion(4);
