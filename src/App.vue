@@ -57,6 +57,55 @@
     <hr>
     <div>
       <h3>
+        Coin Control
+      </h3>
+      <p>
+        This tool lets you select which outputs you would like to spend
+      </p>
+      <br>
+      Address: <input
+        class="pubkey"
+        v-model="coincontrol.address"
+      >
+      <p>
+        <button @click="fetchUtxoSet">
+        View Spendable Transactions
+      </button>
+      <br><br>
+      {{ coincontrol.errorMsg }}
+      </p>
+      <div v-if="coincontrol.show">
+      <table id="coincontroltable" class="center">
+        <thead>
+          <tr>
+            <th></th>
+            <th></th>
+            <th>Confirmations</th>
+            <th>Txid</th>
+            <th>Vout</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(item, index) in coincontrol.getrows" :key="index">
+            <td>{{(coincontrol.currentPage - 1) * 10 + index}}</td>
+            <td><input type="checkbox" class="checkbox" @change="checkboxClicked($event.target.checked, (coincontrol.currentPage - 1) * 10 + index);" v-model="coincontrol.selected[(coincontrol.currentPage - 1) * 10 + index]"/></td>
+            <td>{{item.confirmations}}</td>
+            <td>{{item.txid}}</td>
+            <td> {{item.vout}}</td>
+            <td>{{item.amount}}</td>
+          </tr>
+        </tbody>
+    </table>
+    <br>
+    <div class="pagination">
+      <div class="number" v-for="(i) in coincontrol.numpages" :key="i" v-bind:class="[i == coincontrol.currentPage ? 'active' : '']" v-on:click="change_page(i)">{{i}}</div>
+    </div>
+    </div>
+    </div>
+    <hr>
+    <div>
+      <h3>
         Build Unsigned Transaction
       </h3>
       <p>
@@ -67,7 +116,10 @@
         Avoid Flux Node Collateral Amounts: <input type="checkbox" id="checkbox" v-model="avoidFluxNodeAmounts">
         <br>
         Select All Flux (Ignores the Amount - Max 2000 inputs): <input type="checkbox" id="checkbox" v-model="sendAllFlux">
+        <br>
       </p>
+      
+      <div v-show="coincontrol.selectedValueSats" style="color:green;" >Coin Control Active: <b>{{coincontrol.selectedValueAmount}}</b></div>
       <br>
       My Address: <input
         class="pubkey"
@@ -186,6 +238,19 @@ export default {
         rawtx: '',
         hex: '',
       },
+      coincontrol: {
+        address: '',
+        utxos: [],
+        selected: [],
+        errorMsg: '',
+        currentPage: 1,
+        elementsPerPage: 10,
+        getrows: 0,
+        numpages: 0,
+        show: false,
+        selectedValueSats: 0,
+        selectedValueAmount: 0,
+      },
       avoidFluxNodeAmounts: true,
       sendAllFlux: false,
       isTestnet: false,
@@ -230,6 +295,51 @@ export default {
     addPubKey() {
       this.inputs += 1;
     },
+    num_pages() {
+      this.coincontrol.numpages = Math.ceil(this.coincontrol.utxos.length / this.coincontrol.elementsPerPage);
+    },
+    get_rows() {
+      var start = (this.coincontrol.currentPage-1) * this.coincontrol.elementsPerPage;
+      var end = start + this.coincontrol.elementsPerPage;
+
+      this.coincontrol.getrows = this.coincontrol.utxos.slice(start, end);
+    },
+    change_page(page) {
+      console.log(page)
+      this.coincontrol.currentPage = page;
+      this.get_rows()
+    },
+    checkboxClicked(cb, index) {
+      if (cb) {
+        this.coincontrol.selectedValueSats += this.coincontrol.utxos[index].satoshis;
+      } else {
+        this.coincontrol.selectedValueSats -= this.coincontrol.utxos[index].satoshis;
+      }
+      this.coincontrol.selectedValueAmount =  Number(this.coincontrol.selectedValueSats * 1e-8).toFixed(8);
+    },
+    async fetchUtxoSet() {
+      try {
+        this.coincontrol.errorMsg = '';
+        this.coincontrol.currentPage = 1;
+        this.coincontrol.selected = []
+        const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+        const utx = await axios.get(`${explorer}/api/addr/${this.coincontrol.address}/utxo`);
+
+        this.coincontrol.utxos = utx.data;
+
+        console.log(this.coincontrol.utxos);
+
+        this.num_pages();
+        this.get_rows();
+
+        this.coincontrol.show = true;
+
+      } catch (e) {
+        console.log(e);
+        this.coincontrol.errorMsg = e.message;
+      }
+      
+    },
     async buildUnsignedRawTx() {
       try {
         const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash
@@ -245,11 +355,31 @@ export default {
           satoshis: satoshisToSend,
         }];
         var count = 0;
+
+
+        var selectedCoins = new Set();
+
+        if (this.coincontrol.selectedValueSats > 0) {
+          for (let j = 0; j < this.coincontrol.selected.length; j += 1) {
+            if (this.coincontrol.selected[j] == true) {
+              selectedCoins.add(this.coincontrol.utxos[j].txid + this.coincontrol.utxos[j].vout)
+            }
+          }
+        }
+
+        console.log(selectedCoins)
+
         for (let i = 0; i < utxos.length; i += 1) {
           if (utxos[i].height !== 0) {
 
             if (this.avoidFluxNodeAmounts && (utxos[i].satoshis == 4000000000000 || utxos[i].satoshis == 1250000000000 || utxos[i].satoshis == 100000000000))
               continue;
+          
+            if (this.coincontrol.selectedValueSats > 0) {
+              if(!selectedCoins.has(utxos[i].txid + utxos[i].vout)){
+                continue;
+              }
+            }
 
             history = history.concat({
               txid: utxos[i].txid,
