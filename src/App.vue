@@ -305,7 +305,6 @@ export default {
       this.coincontrol.getrows = this.coincontrol.utxos.slice(start, end);
     },
     change_page(page) {
-      console.log(page)
       this.coincontrol.currentPage = page;
       this.get_rows()
     },
@@ -326,12 +325,8 @@ export default {
         const utx = await axios.get(`${explorer}/api/addr/${this.coincontrol.address}/utxo`);
 
         this.coincontrol.utxos = utx.data;
-
-        console.log(this.coincontrol.utxos);
-
         this.num_pages();
         this.get_rows();
-
         this.coincontrol.show = true;
 
       } catch (e) {
