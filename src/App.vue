@@ -356,6 +356,8 @@ export default {
     },
     async fetchUtxoSet() {
       try {
+        this.coincontrol.selectedValueSats = 0;
+        this.coincontrol.selectedValueAmount = 0;
         this.coincontrol.errorMsg = '';
         this.coincontrol.currentPage = 1;
         this.coincontrol.selected = [];
@@ -441,8 +443,7 @@ export default {
 
           // We don't have any change when sendAllFlux is true
 
-          // Not sure what to do with satoshisfeesToSend - as it is passed to bitgotx.TransactionBuilder
-          // Do all these transactions have a fee amount of 0?
+          // All txs have fee 0
         } else {
           const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
           if (refundSatoshis > 0) {
