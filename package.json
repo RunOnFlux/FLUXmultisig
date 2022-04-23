@@ -1,6 +1,6 @@
 {
   "name": "fluxmultisig",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "FLUX multisig is a tool for easy operations with multisignature addresses",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheTrunk/zelmultisig.git"
+    "url": "git+https://github.com/RunOnFlux/FLUXmultisig.git"
   },
   "keywords": [
     "FLUX",
@@ -19,13 +19,13 @@
   "author": "Tadeas Kmenta",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/TheTrunk/zelmultisig/issues"
+    "url": "https://github.com/RunOnFlux/FLUXmultisig/issues"
   },
-  "homepage": "https://github.com/TheTrunk/zelmultisig#readme",
+  "homepage": "https://github.com/RunOnFlux/FLUXmultisig#readme",
   "dependencies": {
-    "axios": "^0.26.0",
+    "axios": "^0.26.1",
     "bitgo-utxo-lib": "https://github.com/zelcore-io/bitgo-utxo-lib",
-    "core-js": "^3.21.0",
+    "core-js": "^3.22.2",
     "vue": "^2.6.14"
   },
   "devDependencies": {
@@ -33,8 +33,8 @@
     "@vue/cli-plugin-eslint": "^4.5.15",
     "@vue/cli-service": "^4.5.15",
     "babel-eslint": "^10.1.0",
-    "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^7.15.0",
+    "eslint": "^6.8.0",
+    "eslint-plugin-vue": "6.2.2",
     "vue-template-compiler": "^2.6.14"
   },
   "eslintConfig": {
@@ -54,6 +54,7 @@
   "browserslist": [
     "> 1%",
     "last 2 versions",
-    "not dead"
+    "not dead",
+    "not ie 11"
   ]
 }
