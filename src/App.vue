@@ -149,6 +149,14 @@
           type="checkbox"
         >
         <br>
+        Use Titan Deposit / Collateral Addresses: <input
+          id="checkbox"
+          v-model="useTitanAddresses"
+          aria-labelledby="useTitan"
+          type="checkbox"
+          @change="titanCheckboxClicked($event.target.checked);"
+        >
+        <br>
       </p>
 
       <div
@@ -161,11 +169,13 @@
       My Address: <input
         v-model="unsignedTx.myAddress"
         class="pubkey"
+        :disabled="useTitanAddresses"
       >
       <br>
       Receiver Address: <input
         v-model="unsignedTx.receiver"
         class="pubkey"
+        :disabled="useTitanAddresses"
       >
       <br>
       Amount to Send: <input
@@ -184,7 +194,31 @@
         Build!
       </button>
       <br><br>
+      Information: {{txinfo}}
+      <br><br>
       Raw Transaction: {{ unsignedTx.hex }}
+    </div>
+    <hr>
+    <div style="white-space: pre-line;">
+      <h3>
+        Decode Transaction
+      </h3>
+      <p>
+        This tool displays information about a transaction to the user
+      </p>
+      Transaction to decode: <textarea
+        v-model="decodeRawHex"
+        aria-labelledby="decodeRawHex"
+        class="pubkey"
+      />
+      <br>
+      <br>
+      <button @click="decodeRawTransaction">
+        Decode!
+      </button>
+      <br>
+      {{decodedInfoString}}
+      <br>
     </div>
     <hr>
     <div>
@@ -243,6 +277,7 @@
 </template>
 
 <script>
+
 const bitgotx = require('bitgo-utxo-lib');
 const axios = require('axios');
 
@@ -258,6 +293,7 @@ export default {
         address: '',
         redeemScript: '',
       },
+      txinfo: '',
       publickeys: [],
       inputs: 1,
       reqsig: 1,
@@ -294,6 +330,13 @@ export default {
       avoidFluxNodeAmounts: true,
       sendAllFlux: false,
       isTestnet: false,
+      useTitanAddresses: false,
+      decodeRawHex: '',
+      decodedInfo: {
+        inputs: 0,
+        outputs: []
+      },
+      decodedInfoString: '',
       mainnetExplorer: 'https://explorer.runonflux.io',
       testnetExplorer: 'https://testnet.runonflux.io',
     };
@@ -354,6 +397,16 @@ export default {
       }
       this.coincontrol.selectedValueAmount = Number(this.coincontrol.selectedValueSats * 1e-8).toFixed(8);
     },
+    titanCheckboxClicked(cb) {
+      if (cb) {
+        this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
+        this.unsignedTx.receiver = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
+      } else {
+        this.unsignedTx.myAddress = "";
+        this.unsignedTx.receiver = "";
+      }
+    },
+
     async fetchUtxoSet() {
       try {
         this.coincontrol.selectedValueSats = 0;
@@ -398,8 +451,6 @@ export default {
             }
           }
         }
-
-        console.log(selectedCoins);
 
         for (let i = 0; i < utxos.length; i += 1) {
           if (utxos[i].height !== 0) {
@@ -469,10 +520,58 @@ export default {
         }
 
         const tx = txb.buildIncomplete();
+        let destination = '';
+        let change = '';
+
+        if ('outs' in tx) {
+          if (tx['outs'].length >= 1) {
+            destination = bitgotx.address.fromOutputScript(tx['outs'][0]['script'], network);
+            const amountSending = Number(tx['outs'][0]['value'] * 1e-8).toFixed(8);
+            this.txinfo = `Sending ${amountSending} FLUX to ${destination}`
+          }
+          
+          if (tx['outs'].length >= 2) {
+            change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
+            const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
+            this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+          }
+        }
+
         this.unsignedTx.hex = tx.toHex();
       } catch (e) {
         console.log(e);
         this.unsignedTx.hex = e.message;
+      }
+    },
+    async decodeRawTransaction() {
+      try {
+        this.decodedInfoString = '';
+        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
+        const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(this.decodeRawHex, network), network);
+
+        const tx = txb.buildIncomplete();
+        if ('outs' in tx) {
+          tx['outs'].forEach(out => {
+            let item = {};
+            item.address = bitgotx.address.fromOutputScript(out['script'], network);
+            item.amount = Number(out['value'] * 1e-8).toFixed(8);
+            this.decodedInfo.outputs.push(item);
+          });
+        }
+
+         if ('ins' in tx) {
+           this.decodedInfo.inputs = tx['ins'].length;
+         }
+
+         this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs} input(s).\n`
+
+         this.decodedInfo.outputs.forEach(out => {
+          this.decodedInfoString += `Sending ${out.amount} Flux to ${out.address}\n`;
+         });
+
+      } catch (e) {
+        console.log(e);
+        this.decodedInfoString = e.message;
       }
     },
     async signTransaction() {
@@ -586,4 +685,9 @@ table.center {
   margin-left: auto;
   margin-right: auto;
 }
+
+.popover {
+    white-space: pre-line;    
+}
+
 </style>
