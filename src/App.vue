@@ -333,7 +333,10 @@ export default {
       useTitanAddresses: false,
       decodeRawHex: '',
       decodedInfo: {
-        inputs: 0,
+        inputs: {
+          balanceSpent: 0,
+          count: 0,
+        },
         outputs: []
       },
       decodedInfoString: '',
@@ -546,29 +549,43 @@ export default {
     async decodeRawTransaction() {
       try {
         this.decodedInfoString = '';
-        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
-        const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(this.decodeRawHex, network), network);
+      
+        const data = {'hexstring': this.decodeRawHex};
 
-        const tx = txb.buildIncomplete();
-        if ('outs' in tx) {
-          tx['outs'].forEach(out => {
-            let item = {};
-            item.address = bitgotx.address.fromOutputScript(out['script'], network);
-            item.amount = Number(out['value'] * 1e-8).toFixed(8);
-            this.decodedInfo.outputs.push(item);
-          });
+        var config = {
+          method: 'post',
+          url: 'https://api.runonflux.io/daemon/decoderawtransaction/',
+          headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          data : data
+        };
+
+        const response = await axios(config);
+        const vin = response.data.data.vin;
+        const out = response.data.data.vout;
+
+        vin.forEach(input => {
+          if ('value'  in input) {
+            this.decodedInfo.inputs.balanceSpent += input.value || 0;
+          }
+          this.decodedInfo.inputs.count++;
+        });
+
+        out.forEach(output => {
+          let item = {};
+          item.amount = output.value;
+          item.address = output.scriptPubKey.addresses[0];
+          this.decodedInfo.outputs.push(item);
+        });
+
+        this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`
+        if (this.decodedInfo.inputs.value) {
+          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} Flux in the input(s).\n`
         }
-
-         if ('ins' in tx) {
-           this.decodedInfo.inputs = tx['ins'].length;
-         }
-
-         this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs} input(s).\n`
-
-         this.decodedInfo.outputs.forEach(out => {
-          this.decodedInfoString += `Sending ${out.amount} Flux to ${out.address}\n`;
-         });
-
+        this.decodedInfo.outputs.forEach(out => {
+           this.decodedInfoString += `Sending ${out.amount} Flux to ${out.address}\n`;
+        });
       } catch (e) {
         console.log(e);
         this.decodedInfoString = e.message;
