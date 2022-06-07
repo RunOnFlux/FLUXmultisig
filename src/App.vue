@@ -549,6 +549,9 @@ export default {
     async decodeRawTransaction() {
       try {
         this.decodedInfoString = '';
+        this.decodedInfo.outputs = [];
+        this.decodedInfo.inputs.balanceSpent = 0;
+        this.decodedInfo.inputs.count = 0;
       
         const data = {'hexstring': this.decodeRawHex};
 
@@ -575,8 +578,10 @@ export default {
         out.forEach(output => {
           let item = {};
           item.amount = output.value;
-          item.address = output.scriptPubKey.addresses[0];
-          this.decodedInfo.outputs.push(item);
+          if ('addresses' in output.scriptPubKey) {
+            item.address = output.scriptPubKey.addresses[0];
+            this.decodedInfo.outputs.push(item);
+          }
         });
 
         this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`
