@@ -534,9 +534,13 @@ export default {
           }
           
           if (tx['outs'].length >= 2) {
-            change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
-            const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
-            this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+            if (tx['outs'][1]['script'][0] === 0x6a) {
+              // This is the message outpoint as it starts with OP_RETURN
+            } else {
+              change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
+              const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
+              this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+            }
           }
         }
 
