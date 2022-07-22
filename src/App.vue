@@ -149,7 +149,15 @@
           type="checkbox"
         >
         <br>
-        Use Titan Deposit / Collateral Addresses: <input
+        Fill Hot Wallet From Deposit Address: <input
+          id="checkbox"
+          v-model="fillHotWallet"
+          aria-labelledby="fillHot"
+          type="checkbox"
+          @change="fillHotWalletCheckboxClicked($event.target.checked);"
+        >
+        <br>
+        Create Titan Collateral Transaction: <input
           id="checkbox"
           v-model="useTitanAddresses"
           aria-labelledby="useTitan"
@@ -168,19 +176,19 @@
       My Address: <input
         v-model="unsignedTx.myAddress"
         class="pubkey"
-        :disabled="useTitanAddresses"
+        :disabled="useTitanAddresses || fillHotWallet"
       >
       <br>
       Receiver Address: <input
         v-model="unsignedTx.receiver"
         class="pubkey"
-        :disabled="useTitanAddresses"
+        :disabled="useTitanAddresses || fillHotWallet"
       >
       <br>
       Amount to Send: <input
         v-model="unsignedTx.amount"
         class="pubkey"
-        :disabled="sendAllFlux"
+        :disabled="sendAllFlux || useTitanAddresses"
       >
       <br>
       Message to Send: <input
@@ -345,6 +353,7 @@ export default {
       isTestnet: false,
       multipleTxes: false,
       useTitanAddresses: false,
+      fillHotWallet: false,
       decodeRawHex: '',
       decodedInfo: {
         inputs: {
@@ -413,12 +422,28 @@ export default {
     },
     titanCheckboxClicked(cb) {
       if (cb) {
+        this.fillHotWallet = false;
         this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
         this.unsignedTx.receiver = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
+        this.unsignedTx.amount = 40000;
       } else {
         this.unsignedTx.myAddress = "";
         this.unsignedTx.receiver = "";
+        this.unsignedTx.amount = 0;
       }
+    },
+    fillHotWalletCheckboxClicked(cb) {
+      if (cb) {
+        this.useTitanAddresses = false;
+        this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
+        this.unsignedTx.receiver = "t1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e";
+        this.unsignedTx.amount = 0;
+      } else {
+        this.unsignedTx.myAddress = "";
+        this.unsignedTx.receiver = "";
+        this.unsignedTx.amount = 0;
+      }
+
     },
 
     async fetchUtxoSet() {
