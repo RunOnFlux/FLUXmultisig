@@ -156,7 +156,6 @@
           type="checkbox"
           @change="titanCheckboxClicked($event.target.checked);"
         >
-        <br>
       </p>
 
       <div
@@ -190,13 +189,25 @@
       >
       <br>
       <br>
+        Generate Multiple Transactions (Can't use with send All): <input
+          id="checkbox"
+          v-model="multipleTxes"
+          aria-labelledby="multiTxes"
+          type="checkbox"
+        >
+        <br>
+      <br>
       <button @click="buildUnsignedRawTx">
         Build!
       </button>
       <br><br>
-      Information: {{txinfo}}
+      <div v-for="(item, index) in txinfoList" :key="item.id">
+        Information {{index}}: {{item}}
+      </div>
       <br><br>
-      Raw Transaction: {{ unsignedTx.hex }}
+      <div v-for="(item, index) in unsignedTxList" :key="item.id">
+        Raw Transaction {{index}}: {{item.hex}}
+      </div>
     </div>
     <hr>
     <div style="white-space: pre-line;">
@@ -294,6 +305,7 @@ export default {
         redeemScript: '',
       },
       txinfo: '',
+      txinfoList: [],
       publickeys: [],
       inputs: 1,
       reqsig: 1,
@@ -304,6 +316,7 @@ export default {
         message: '',
         hex: '',
       },
+      unsignedTxList: [],
       signedTx: {
         rawtx: '',
         privatekey: '',
@@ -330,6 +343,7 @@ export default {
       avoidFluxNodeAmounts: true,
       sendAllFlux: false,
       isTestnet: false,
+      multipleTxes: false,
       useTitanAddresses: false,
       decodeRawHex: '',
       decodedInfo: {
@@ -444,107 +458,151 @@ export default {
           satoshis: satoshisToSend,
         }];
         let count = 0;
+        
+        this.unsignedTxList = [];
+        this.txinfoList = [];
 
         const selectedCoins = new Set();
+        const usedUtxos = new Set();
 
-        if (this.coincontrol.selectedValueSats > 0) {
-          for (let j = 0; j < this.coincontrol.selected.length; j += 1) {
-            if (this.coincontrol.selected[j] === true) {
-              selectedCoins.add(this.coincontrol.utxos[j].txid + this.coincontrol.utxos[j].vout);
+        for (let loop = 0; loop < 3; loop +=1) {
+          console.log(`looping ${loop}`);
+          history = [];
+          satoshisSoFar = 0;
+          recipients = [{
+            address: this.unsignedTx.receiver,
+            satoshis: satoshisToSend,
+          }];
+          count = 0;
+          selectedCoins.clear();
+          const addressFrom = this.unsignedTx.myAddress;
+          const addressTo = this.unsignedTx.receiver;
+          const amount = this.unsignedTx.amount;
+          let message = this.unsignedTx.message;
+
+          // if this isn't the first tx, update the message
+          if (loop > 0) {
+            message = this.updateTitanNodeMessage(message);
+          }
+
+          this.unsignedTx = {
+            myAddress: addressFrom,
+            receiver: addressTo,
+            amount: amount,
+            message: message,
+            hex: '',
+          }
+
+          if (this.coincontrol.selectedValueSats > 0) {
+            for (let j = 0; j < this.coincontrol.selected.length; j += 1) {
+              if (this.coincontrol.selected[j] === true) {
+                selectedCoins.add(this.coincontrol.utxos[j].txid + this.coincontrol.utxos[j].vout);
+              }
             }
           }
-        }
 
-        for (let i = 0; i < utxos.length; i += 1) {
-          if (utxos[i].height !== 0) {
-            if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
-              // eslint-disable-next-line no-continue
-              continue;
-            }
-
-            if (this.coincontrol.selectedValueSats > 0) {
-              if (!selectedCoins.has(utxos[i].txid + utxos[i].vout)) {
+          for (let i = 0; i < utxos.length; i += 1) {
+            if (utxos[i].height !== 0) {
+              if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
                 // eslint-disable-next-line no-continue
                 continue;
               }
-            }
 
-            history = history.concat({
-              txid: utxos[i].txid,
-              vout: utxos[i].vout,
-              scriptPubKey: utxos[i].scriptPubKey,
-              satoshis: utxos[i].satoshis,
-            });
+              if (this.coincontrol.selectedValueSats > 0) {
+                if (!selectedCoins.has(utxos[i].txid + utxos[i].vout)) {
+                  // eslint-disable-next-line no-continue
+                  continue;
+                }
+              }
 
-            satoshisSoFar += utxos[i].satoshis;
-            count += 1;
-            if (this.sendAllFlux) {
-              if (count >= 2000) {
+              if (usedUtxos.has(utxos[i].txid + utxos[i].vout)) {
+                continue;
+              } else {
+                usedUtxos.add(utxos[i].txid + utxos[i].vout);
+              }
+
+              history = history.concat({
+                txid: utxos[i].txid,
+                vout: utxos[i].vout,
+                scriptPubKey: utxos[i].scriptPubKey,
+                satoshis: utxos[i].satoshis,
+              });
+
+              satoshisSoFar += utxos[i].satoshis;
+              count += 1;
+              if (this.sendAllFlux) {
+                if (count >= 2000) {
+                  break;
+                }
+                // eslint-disable-next-line no-continue
+                continue;
+              } else if (satoshisSoFar >= satoshisToSend + satoshisfeesToSend) {
                 break;
               }
-              // eslint-disable-next-line no-continue
-              continue;
-            } else if (satoshisSoFar >= satoshisToSend + satoshisfeesToSend) {
-              break;
             }
           }
-        }
 
-        if (this.sendAllFlux) {
-          // Update the recipient to the full flux amount
-          // Overrides the amount that was put in the Amount to Send textbox
-          recipients[0].satoshis = satoshisSoFar;
+          if (this.sendAllFlux) {
+            // Update the recipient to the full flux amount
+            // Overrides the amount that was put in the Amount to Send textbox
+            recipients[0].satoshis = satoshisSoFar;
 
-          // We don't have any change when sendAllFlux is true
+            // We don't have any change when sendAllFlux is true
 
-          // All txs have fee 0
-        } else {
-          const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
-          if (refundSatoshis > 0) {
-            recipients = recipients.concat({
-              address: this.unsignedTx.myAddress,
-              satoshis: refundSatoshis,
-            });
-          }
-          if (refundSatoshis < 0) {
-            this.unsignedTx.hex = 'Insufficient amount';
-            return;
-          }
-        }
-        const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
-        txb.setVersion(4);
-        txb.setVersionGroupId(0x892F2085);
-        history.forEach((x) => txb.addInput(x.txid, x.vout));
-        recipients.forEach((x) => txb.addOutput(x.address, x.satoshis));
-        if (this.unsignedTx.message !== '') {
-          const data = Buffer.from(this.unsignedTx.message, 'utf8');
-          const dataScript = bitgotx.script.nullData.output.encode(data);
-          txb.addOutput(dataScript, 0);
-        }
-
-        const tx = txb.buildIncomplete();
-        let destination = '';
-        let change = '';
-
-        if ('outs' in tx) {
-          if (tx['outs'].length >= 1) {
-            destination = bitgotx.address.fromOutputScript(tx['outs'][0]['script'], network);
-            const amountSending = Number(tx['outs'][0]['value'] * 1e-8).toFixed(8);
-            this.txinfo = `Sending ${amountSending} FLUX to ${destination}`
-          }
-          
-          if (tx['outs'].length >= 2) {
-            if (tx['outs'][1]['script'][0] === 0x6a) {
-              // This is the message outpoint as it starts with OP_RETURN
-            } else {
-              change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
-              const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
-              this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+            // All txs have fee 0
+          } else {
+            const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
+            if (refundSatoshis > 0) {
+              recipients = recipients.concat({
+                address: this.unsignedTx.myAddress,
+                satoshis: refundSatoshis,
+              });
+            }
+            if (refundSatoshis < 0) {
+              this.unsignedTx.hex = 'Insufficient amount';
+              return;
             }
           }
-        }
+          const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
+          txb.setVersion(4);
+          txb.setVersionGroupId(0x892F2085);
+          history.forEach((x) => txb.addInput(x.txid, x.vout));
+          recipients.forEach((x) => txb.addOutput(x.address, x.satoshis));
+          if (this.unsignedTx.message !== '') {
+            const data = Buffer.from(this.unsignedTx.message, 'utf8');
+            const dataScript = bitgotx.script.nullData.output.encode(data);
+            txb.addOutput(dataScript, 0);
+          }
 
-        this.unsignedTx.hex = tx.toHex();
+          const tx = txb.buildIncomplete();
+          let destination = '';
+          let change = '';
+
+          if ('outs' in tx) {
+            if (tx['outs'].length >= 1) {
+              destination = bitgotx.address.fromOutputScript(tx['outs'][0]['script'], network);
+              const amountSending = Number(tx['outs'][0]['value'] * 1e-8).toFixed(8);
+              this.txinfo = `Sending ${amountSending} FLUX to ${destination}`
+            }
+            
+            if (tx['outs'].length >= 2) {
+              if (tx['outs'][1]['script'][0] === 0x6a) {
+                // This is the message outpoint as it starts with OP_RETURN
+              } else {
+                change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
+                const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
+                this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+              }
+            }
+          }
+          this.txinfoList.push(this.txinfo);
+          this.unsignedTx.hex = tx.toHex();
+          this.unsignedTxList.push(this.unsignedTx);
+          console.log(`Pushing value into usignedTxList ${this.unsignedTx.hex}`);
+          if (this.sendAllFlux || !this.multipleTxes) {
+            break;
+          }
+        }
       } catch (e) {
         console.log(e);
         this.unsignedTx.hex = e.message;
@@ -644,6 +702,19 @@ export default {
     getValueHexBuffer(hex) {
       const buf = Buffer.from(hex, 'hex').reverse();
       return buf.toString('hex');
+    },
+    updateTitanNodeMessage(message) {
+      // Example Titan Node 15
+      if(message.includes("Titan Node")) {
+        var text = message;
+        var getPart = text.replace ( /[^\d.]/g, '' ); // returns '15'
+        var num = parseInt(getPart); // returns 15
+        var newVal = num+1; // returns 16
+        var reg = new RegExp(num); // create dynamic regexp
+        var newstring = text.replace ( reg, newVal ); // returns Titan Node 16
+        return newstring;
+      }
+      return '';
     },
   },
 };
