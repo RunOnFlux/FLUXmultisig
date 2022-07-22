@@ -362,10 +362,7 @@ export default {
     generateKeypair() {
       const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
       const keyPair = bitgotx.ECPair.makeRandom({ network });
-      // console.log(keyPair);
       const pubKey = keyPair.getPublicKeyBuffer().toString('hex');
-      // const address = keyPair.getAddress();
-      // console.log(address);
 
       this.keypair.publickey = pubKey;
       this.keypair.privatekey = keyPair.toWIF();
@@ -466,7 +463,6 @@ export default {
         const usedUtxos = new Set();
 
         for (let loop = 0; loop < 3; loop +=1) {
-          console.log(`looping ${loop}`);
           history = [];
           satoshisSoFar = 0;
           recipients = [{
@@ -598,7 +594,6 @@ export default {
           this.txinfoList.push(this.txinfo);
           this.unsignedTx.hex = tx.toHex();
           this.unsignedTxList.push(this.unsignedTx);
-          console.log(`Pushing value into usignedTxList ${this.unsignedTx.hex}`);
           if (this.sendAllFlux || !this.multipleTxes) {
             break;
           }
@@ -665,14 +660,11 @@ export default {
         const txhex = this.signedTx.rawtx;
         const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
         const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
-        console.log(txb);
         let i = 0;
         // eslint-disable-next-line no-unused-vars
         for (const input of txb.inputs) {
           const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
           const { index } = txb.tx.ins[i];
-          console.log(txb.tx);
-          console.log(hash);
           const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
           // eslint-disable-next-line no-await-in-loop
           const tx = await axios.get(`${explorer}/api/tx/${hash}`);
