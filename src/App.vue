@@ -133,38 +133,52 @@
       <p>
         This tool helps you build an unsigned transaction.
       </p>
-
-      <p>
-        Avoid Flux Node Collateral Amounts: <input
-          id="checkbox"
-          v-model="avoidFluxNodeAmounts"
-          aria-labelledby="avoindFluxNodeAmounts"
-          type="checkbox"
-        >
-        <br>
-        Select All Flux (Ignores the Amount - Max 2000 inputs): <input
-          id="checkbox"
-          v-model="sendAllFlux"
-          aria-labelledby="sendAll"
-          type="checkbox"
-        >
-        <br>
-        Fill Hot Wallet From Deposit Address: <input
-          id="checkbox"
-          v-model="fillHotWallet"
-          aria-labelledby="fillHot"
-          type="checkbox"
-          @change="fillHotWalletCheckboxClicked($event.target.checked);"
-        >
-        <br>
-        Create Titan Collateral Transaction: <input
-          id="checkbox"
-          v-model="useTitanAddresses"
-          aria-labelledby="useTitan"
-          type="checkbox"
-          @change="titanCheckboxClicked($event.target.checked);"
-        >
-      </p>
+      <p></p>
+      <button @click="isTitan = !isTitan; avoidFluxNodeAmounts = isTitan;">
+        {{ isTitan ? 'USING Titan Features.' : '' }} Click to toggle titan features
+      </button>
+      <br>
+      <div :style="{display: isTitan ? 'initial' : 'none'}">
+      <label><input
+        id="checkbox"
+        v-model="avoidFluxNodeAmounts"
+        aria-labelledby="avoindFluxNodeAmounts"
+        type="checkbox"
+        :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx"
+      >Avoid Flux Node Collateral Amounts</label>
+      <br>
+      <label><input
+        id="checkbox"
+        v-model="sendAllFlux"
+        aria-labelledby="sendAll"
+        type="checkbox"
+        :disabled="multipleTxes || createCollateralTx"
+      >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
+      <br>
+      <label><input
+        id="checkbox"
+        v-model="fillHotWalletWithRewards"
+        aria-labelledby="fillHotWithRewards"
+        type="checkbox"
+        @change="fillHotWalletWithRewardsCheckboxClicked($event.target.checked);"
+      >Fill Hot Wallet From Collateral Rewards</label>
+      <br>
+      <label><input
+        id="checkbox"
+        v-model="fillHotWalletFromDesposit"
+        aria-labelledby="fillHotWalletFromDesposit"
+        type="checkbox"
+        @change="fillHotWalletFromDepositCheckboxClicked($event.target.checked);"
+      >Fill Hot Wallet From Deposit Address</label>
+      <br>
+      <label><input
+        id="checkbox"
+        v-model="createCollateralTx"
+        aria-labelledby="createCollateralTx"
+        type="checkbox"
+        @change="createCollateralTxCheckboxClicked($event.target.checked);"
+      >Create Titan Collateral Transaction</label>
+      </div>
 
       <div
         v-show="coincontrol.selectedValueSats"
@@ -176,34 +190,36 @@
       My Address: <input
         v-model="unsignedTx.myAddress"
         class="pubkey"
-        :disabled="useTitanAddresses || fillHotWallet"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
       >
       <br>
       Receiver Address: <input
         v-model="unsignedTx.receiver"
         class="pubkey"
-        :disabled="useTitanAddresses || fillHotWallet"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
       >
       <br>
       Amount to Send: <input
         v-model="unsignedTx.amount"
         class="pubkey"
-        :disabled="sendAllFlux || useTitanAddresses"
+        :disabled="sendAllFlux || createCollateralTx"
       >
       <br>
       Message to Send: <input
         v-model="unsignedTx.message"
         class="pubkey"
       >
-      <br>
-      <br>
-        Generate Multiple Transactions (Can't use with send All): <input
+      <div :style="{display: isTitan ? 'initial' : 'none'}">
+        <br>
+        <label>Generate Multiple Transactions (Can't use with send All):<input
           id="checkbox"
           v-model="multipleTxes"
           aria-labelledby="multiTxes"
           type="checkbox"
-        >
+          @change="generateMultiTxesCheckboxClicked($event.target.checked);"
+        ></label>
         <br>
+      </div>
       <br>
       <button @click="buildUnsignedRawTx">
         Build!
@@ -348,12 +364,14 @@ export default {
         selectedValueSats: 0,
         selectedValueAmount: 0,
       },
-      avoidFluxNodeAmounts: true,
+      avoidFluxNodeAmounts: false,
       sendAllFlux: false,
       isTestnet: false,
+      isTitan: false,
       multipleTxes: false,
-      useTitanAddresses: false,
-      fillHotWallet: false,
+      createCollateralTx: false,
+      fillHotWalletFromDesposit: false,
+      fillHotWalletWithRewards: false,
       decodeRawHex: '',
       decodedInfo: {
         inputs: {
@@ -420,9 +438,12 @@ export default {
       }
       this.coincontrol.selectedValueAmount = Number(this.coincontrol.selectedValueSats * 1e-8).toFixed(8);
     },
-    titanCheckboxClicked(cb) {
+    createCollateralTxCheckboxClicked(cb) {
       if (cb) {
-        this.fillHotWallet = false;
+        this.avoidFluxNodeAmounts = false;
+        this.fillHotWalletFromDesposit = false;
+        this.fillHotWalletWithRewards = false;
+        this.sendAllFlux = false;
         this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
         this.unsignedTx.receiver = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
         this.unsignedTx.amount = 40000;
@@ -432,10 +453,33 @@ export default {
         this.unsignedTx.amount = 0;
       }
     },
-    fillHotWalletCheckboxClicked(cb) {
+    generateMultiTxesCheckboxClicked(cb) {
       if (cb) {
-        this.useTitanAddresses = false;
+        this.sendAllFlux = false;
+      }
+    },
+    
+    fillHotWalletFromDepositCheckboxClicked(cb) {
+      if (cb) {
+        this.avoidFluxNodeAmounts = false;
+        this.createCollateralTx = false;
+        this.fillHotWalletWithRewards = false;
         this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
+        this.unsignedTx.receiver = "t1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e";
+        this.unsignedTx.amount = 0;
+      } else {
+        this.unsignedTx.myAddress = "";
+        this.unsignedTx.receiver = "";
+        this.unsignedTx.amount = 0;
+      }
+
+    },
+    fillHotWalletWithRewardsCheckboxClicked(cb) {
+      if (cb) {
+        this.avoidFluxNodeAmounts = true;
+        this.createCollateralTx = false;
+        this.fillHotWalletFromDesposit = false;
+        this.unsignedTx.myAddress = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
         this.unsignedTx.receiver = "t1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e";
         this.unsignedTx.amount = 0;
       } else {
@@ -487,7 +531,7 @@ export default {
         const selectedCoins = new Set();
         const usedUtxos = new Set();
 
-        for (let loop = 0; loop < 3; loop +=1) {
+        for (let loop = 0; loop < 5; loop +=1) {
           history = [];
           satoshisSoFar = 0;
           recipients = [{
