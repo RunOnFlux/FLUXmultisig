@@ -133,31 +133,52 @@
       <p>
         This tool helps you build an unsigned transaction.
       </p>
-
-      <p>
-        Avoid Flux Node Collateral Amounts: <input
+      <p />
+      <button @click="isTitan = !isTitan; avoidFluxNodeAmounts = isTitan;">
+        {{ isTitan ? 'USING Titan Features.' : '' }} Click to toggle titan features
+      </button>
+      <br>
+      <div :style="{display: isTitan ? 'initial' : 'none'}">
+        <label><input
           id="checkbox"
           v-model="avoidFluxNodeAmounts"
           aria-labelledby="avoindFluxNodeAmounts"
           type="checkbox"
-        >
+          :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx"
+        >Avoid Flux Node Collateral Amounts</label>
         <br>
-        Select All Flux (Ignores the Amount - Max 2000 inputs): <input
+        <label><input
           id="checkbox"
           v-model="sendAllFlux"
           aria-labelledby="sendAll"
           type="checkbox"
-        >
+          :disabled="multipleTxes || createCollateralTx"
+        >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
         <br>
-        Use Titan Deposit / Collateral Addresses: <input
+        <label><input
           id="checkbox"
-          v-model="useTitanAddresses"
-          aria-labelledby="useTitan"
+          v-model="fillHotWalletWithRewards"
+          aria-labelledby="fillHotWithRewards"
           type="checkbox"
-          @change="titanCheckboxClicked($event.target.checked);"
-        >
+          @change="fillHotWalletWithRewardsCheckboxClicked($event.target.checked);"
+        >Fill Hot Wallet From Collateral Rewards</label>
         <br>
-      </p>
+        <label><input
+          id="checkbox"
+          v-model="fillHotWalletFromDesposit"
+          aria-labelledby="fillHotWalletFromDesposit"
+          type="checkbox"
+          @change="fillHotWalletFromDepositCheckboxClicked($event.target.checked);"
+        >Fill Hot Wallet From Deposit Address</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="createCollateralTx"
+          aria-labelledby="createCollateralTx"
+          type="checkbox"
+          @change="createCollateralTxCheckboxClicked($event.target.checked);"
+        >Create Titan Collateral Transaction</label>
+      </div>
 
       <div
         v-show="coincontrol.selectedValueSats"
@@ -169,34 +190,54 @@
       My Address: <input
         v-model="unsignedTx.myAddress"
         class="pubkey"
-        :disabled="useTitanAddresses"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
       >
       <br>
       Receiver Address: <input
         v-model="unsignedTx.receiver"
         class="pubkey"
-        :disabled="useTitanAddresses"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
       >
       <br>
       Amount to Send: <input
         v-model="unsignedTx.amount"
         class="pubkey"
-        :disabled="sendAllFlux"
+        :disabled="sendAllFlux || createCollateralTx"
       >
       <br>
       Message to Send: <input
         v-model="unsignedTx.message"
         class="pubkey"
       >
-      <br>
+      <div :style="{display: isTitan ? 'initial' : 'none'}">
+        <br>
+        <label>Generate Multiple Transactions (Can't use with send All):<input
+          id="checkbox"
+          v-model="multipleTxes"
+          aria-labelledby="multiTxes"
+          type="checkbox"
+          @change="generateMultiTxesCheckboxClicked($event.target.checked);"
+        ></label>
+        <br>
+      </div>
       <br>
       <button @click="buildUnsignedRawTx">
         Build!
       </button>
       <br><br>
-      Information: {{txinfo}}
+      <div
+        v-for="(item, index) in txinfoList"
+        :key="item.id"
+      >
+        Information {{ index }}: {{ item }}
+      </div>
       <br><br>
-      Raw Transaction: {{ unsignedTx.hex }}
+      <div
+        v-for="(item, index) in unsignedTxList"
+        :key="item.id"
+      >
+        Raw Transaction {{ index }}: {{ item.hex }}
+      </div>
     </div>
     <hr>
     <div style="white-space: pre-line;">
@@ -217,7 +258,7 @@
         Decode!
       </button>
       <br>
-      {{decodedInfoString}}
+      {{ decodedInfoString }}
       <br>
     </div>
     <hr>
@@ -294,6 +335,7 @@ export default {
         redeemScript: '',
       },
       txinfo: '',
+      txinfoList: [],
       publickeys: [],
       inputs: 1,
       reqsig: 1,
@@ -304,6 +346,7 @@ export default {
         message: '',
         hex: '',
       },
+      unsignedTxList: [],
       signedTx: {
         rawtx: '',
         privatekey: '',
@@ -327,17 +370,21 @@ export default {
         selectedValueSats: 0,
         selectedValueAmount: 0,
       },
-      avoidFluxNodeAmounts: true,
+      avoidFluxNodeAmounts: false,
       sendAllFlux: false,
       isTestnet: false,
-      useTitanAddresses: false,
+      isTitan: false,
+      multipleTxes: false,
+      createCollateralTx: false,
+      fillHotWalletFromDesposit: false,
+      fillHotWalletWithRewards: false,
       decodeRawHex: '',
       decodedInfo: {
         inputs: {
           balanceSpent: 0,
           count: 0,
         },
-        outputs: []
+        outputs: [],
       },
       decodedInfoString: '',
       mainnetExplorer: 'https://explorer.runonflux.io',
@@ -348,10 +395,7 @@ export default {
     generateKeypair() {
       const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
       const keyPair = bitgotx.ECPair.makeRandom({ network });
-      // console.log(keyPair);
       const pubKey = keyPair.getPublicKeyBuffer().toString('hex');
-      // const address = keyPair.getAddress();
-      // console.log(address);
 
       this.keypair.publickey = pubKey;
       this.keypair.privatekey = keyPair.toWIF();
@@ -400,13 +444,53 @@ export default {
       }
       this.coincontrol.selectedValueAmount = Number(this.coincontrol.selectedValueSats * 1e-8).toFixed(8);
     },
-    titanCheckboxClicked(cb) {
+    createCollateralTxCheckboxClicked(cb) {
       if (cb) {
-        this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
-        this.unsignedTx.receiver = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
+        this.avoidFluxNodeAmounts = false;
+        this.fillHotWalletFromDesposit = false;
+        this.fillHotWalletWithRewards = false;
+        this.sendAllFlux = false;
+        this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
+        this.unsignedTx.receiver = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.amount = 40000;
       } else {
-        this.unsignedTx.myAddress = "";
-        this.unsignedTx.receiver = "";
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
+        this.unsignedTx.amount = 0;
+      }
+    },
+    generateMultiTxesCheckboxClicked(cb) {
+      if (cb) {
+        this.sendAllFlux = false;
+      }
+    },
+
+    fillHotWalletFromDepositCheckboxClicked(cb) {
+      if (cb) {
+        this.avoidFluxNodeAmounts = false;
+        this.createCollateralTx = false;
+        this.fillHotWalletWithRewards = false;
+        this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
+        this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
+        this.unsignedTx.amount = 0;
+      } else {
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
+        this.unsignedTx.amount = 0;
+      }
+    },
+    fillHotWalletWithRewardsCheckboxClicked(cb) {
+      if (cb) {
+        this.avoidFluxNodeAmounts = true;
+        this.createCollateralTx = false;
+        this.fillHotWalletFromDesposit = false;
+        this.unsignedTx.myAddress = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
+        this.unsignedTx.amount = 0;
+      } else {
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
+        this.unsignedTx.amount = 0;
       }
     },
 
@@ -445,106 +529,149 @@ export default {
         }];
         let count = 0;
 
-        const selectedCoins = new Set();
+        this.unsignedTxList = [];
+        this.txinfoList = [];
 
-        if (this.coincontrol.selectedValueSats > 0) {
-          for (let j = 0; j < this.coincontrol.selected.length; j += 1) {
-            if (this.coincontrol.selected[j] === true) {
-              selectedCoins.add(this.coincontrol.utxos[j].txid + this.coincontrol.utxos[j].vout);
+        const selectedCoins = new Set();
+        const usedUtxos = new Set();
+
+        for (let loop = 0; loop < 5; loop += 1) {
+          history = [];
+          satoshisSoFar = 0;
+          recipients = [{
+            address: this.unsignedTx.receiver,
+            satoshis: satoshisToSend,
+          }];
+          count = 0;
+          selectedCoins.clear();
+          const addressFrom = this.unsignedTx.myAddress;
+          const addressTo = this.unsignedTx.receiver;
+          const { amount } = this.unsignedTx;
+          let { message } = this.unsignedTx;
+
+          // if this isn't the first tx, update the message
+          if (loop > 0) {
+            message = this.updateTitanNodeMessage(message);
+          }
+
+          this.unsignedTx = {
+            myAddress: addressFrom,
+            receiver: addressTo,
+            amount,
+            message,
+            hex: '',
+          };
+
+          if (this.coincontrol.selectedValueSats > 0) {
+            for (let j = 0; j < this.coincontrol.selected.length; j += 1) {
+              if (this.coincontrol.selected[j] === true) {
+                selectedCoins.add(this.coincontrol.utxos[j].txid + this.coincontrol.utxos[j].vout);
+              }
             }
           }
-        }
 
-        for (let i = 0; i < utxos.length; i += 1) {
-          if (utxos[i].height !== 0) {
-            if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
-              // eslint-disable-next-line no-continue
-              continue;
-            }
-
-            if (this.coincontrol.selectedValueSats > 0) {
-              if (!selectedCoins.has(utxos[i].txid + utxos[i].vout)) {
+          for (let i = 0; i < utxos.length; i += 1) {
+            if (utxos[i].height !== 0) {
+              if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
                 // eslint-disable-next-line no-continue
                 continue;
               }
-            }
 
-            history = history.concat({
-              txid: utxos[i].txid,
-              vout: utxos[i].vout,
-              scriptPubKey: utxos[i].scriptPubKey,
-              satoshis: utxos[i].satoshis,
-            });
+              if (this.coincontrol.selectedValueSats > 0) {
+                if (!selectedCoins.has(utxos[i].txid + utxos[i].vout)) {
+                  // eslint-disable-next-line no-continue
+                  continue;
+                }
+              }
 
-            satoshisSoFar += utxos[i].satoshis;
-            count += 1;
-            if (this.sendAllFlux) {
-              if (count >= 2000) {
+              if (usedUtxos.has(utxos[i].txid + utxos[i].vout)) {
+                // eslint-disable-next-line no-continue
+                continue;
+              } else {
+                usedUtxos.add(utxos[i].txid + utxos[i].vout);
+              }
+
+              history = history.concat({
+                txid: utxos[i].txid,
+                vout: utxos[i].vout,
+                scriptPubKey: utxos[i].scriptPubKey,
+                satoshis: utxos[i].satoshis,
+              });
+
+              satoshisSoFar += utxos[i].satoshis;
+              count += 1;
+              if (this.sendAllFlux) {
+                if (count >= 2000) {
+                  break;
+                }
+                // eslint-disable-next-line no-continue
+                continue;
+              } else if (satoshisSoFar >= satoshisToSend + satoshisfeesToSend) {
                 break;
               }
-              // eslint-disable-next-line no-continue
-              continue;
-            } else if (satoshisSoFar >= satoshisToSend + satoshisfeesToSend) {
-              break;
             }
           }
-        }
 
-        if (this.sendAllFlux) {
-          // Update the recipient to the full flux amount
-          // Overrides the amount that was put in the Amount to Send textbox
-          recipients[0].satoshis = satoshisSoFar;
+          if (this.sendAllFlux) {
+            // Update the recipient to the full flux amount
+            // Overrides the amount that was put in the Amount to Send textbox
+            recipients[0].satoshis = satoshisSoFar;
 
-          // We don't have any change when sendAllFlux is true
+            // We don't have any change when sendAllFlux is true
 
-          // All txs have fee 0
-        } else {
-          const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
-          if (refundSatoshis > 0) {
-            recipients = recipients.concat({
-              address: this.unsignedTx.myAddress,
-              satoshis: refundSatoshis,
-            });
-          }
-          if (refundSatoshis < 0) {
-            this.unsignedTx.hex = 'Insufficient amount';
-            return;
-          }
-        }
-        const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
-        txb.setVersion(4);
-        txb.setVersionGroupId(0x892F2085);
-        history.forEach((x) => txb.addInput(x.txid, x.vout));
-        recipients.forEach((x) => txb.addOutput(x.address, x.satoshis));
-        if (this.unsignedTx.message !== '') {
-          const data = Buffer.from(this.unsignedTx.message, 'utf8');
-          const dataScript = bitgotx.script.nullData.output.encode(data);
-          txb.addOutput(dataScript, 0);
-        }
-
-        const tx = txb.buildIncomplete();
-        let destination = '';
-        let change = '';
-
-        if ('outs' in tx) {
-          if (tx['outs'].length >= 1) {
-            destination = bitgotx.address.fromOutputScript(tx['outs'][0]['script'], network);
-            const amountSending = Number(tx['outs'][0]['value'] * 1e-8).toFixed(8);
-            this.txinfo = `Sending ${amountSending} FLUX to ${destination}`
-          }
-          
-          if (tx['outs'].length >= 2) {
-            if (tx['outs'][1]['script'][0] === 0x6a) {
-              // This is the message outpoint as it starts with OP_RETURN
-            } else {
-              change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
-              const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
-              this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+            // All txs have fee 0
+          } else {
+            const refundSatoshis = satoshisSoFar - satoshisToSend - satoshisfeesToSend;
+            if (refundSatoshis > 0) {
+              recipients = recipients.concat({
+                address: this.unsignedTx.myAddress,
+                satoshis: refundSatoshis,
+              });
+            }
+            if (refundSatoshis < 0) {
+              this.unsignedTx.hex = 'Insufficient amount';
+              return;
             }
           }
-        }
+          const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
+          txb.setVersion(4);
+          txb.setVersionGroupId(0x892F2085);
+          history.forEach((x) => txb.addInput(x.txid, x.vout));
+          recipients.forEach((x) => txb.addOutput(x.address, x.satoshis));
+          if (this.unsignedTx.message !== '') {
+            const data = Buffer.from(this.unsignedTx.message, 'utf8');
+            const dataScript = bitgotx.script.nullData.output.encode(data);
+            txb.addOutput(dataScript, 0);
+          }
 
-        this.unsignedTx.hex = tx.toHex();
+          const tx = txb.buildIncomplete();
+          let destination = '';
+          let change = '';
+
+          if ('outs' in tx) {
+            if (tx.outs.length >= 1) {
+              destination = bitgotx.address.fromOutputScript(tx.outs[0].script, network);
+              const amountSending = Number(tx.outs[0].value * 1e-8).toFixed(8);
+              this.txinfo = `Sending ${amountSending} FLUX to ${destination}`;
+            }
+
+            if (tx.outs.length >= 2) {
+              if (tx.outs[1].script[0] === 0x6a) {
+                // This is the message outpoint as it starts with OP_RETURN
+              } else {
+                change = bitgotx.address.fromOutputScript(tx.outs[1].script, network);
+                const amountChange = Number(tx.outs[1].value * 1e-8).toFixed(8);
+                this.txinfo += ` and sending back as change ${amountChange} FLUX to ${change}`;
+              }
+            }
+          }
+          this.txinfoList.push(this.txinfo);
+          this.unsignedTx.hex = tx.toHex();
+          this.unsignedTxList.push(this.unsignedTx);
+          if (this.sendAllFlux || !this.multipleTxes) {
+            break;
+          }
+        }
       } catch (e) {
         console.log(e);
         this.unsignedTx.hex = e.message;
@@ -556,44 +683,45 @@ export default {
         this.decodedInfo.outputs = [];
         this.decodedInfo.inputs.balanceSpent = 0;
         this.decodedInfo.inputs.count = 0;
-      
-        const data = {'hexstring': this.decodeRawHex};
 
-        var config = {
+        const data = { hexstring: this.decodeRawHex };
+
+        const config = {
           method: 'post',
           url: 'https://api.runonflux.io/daemon/decoderawtransaction/',
-          headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded'
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          data : data
+          data,
         };
 
         const response = await axios(config);
-        const vin = response.data.data.vin;
+        const { vin } = response.data.data;
         const out = response.data.data.vout;
 
-        vin.forEach(input => {
-          if ('value'  in input) {
+        vin.forEach((input) => {
+          if ('value' in input) {
             this.decodedInfo.inputs.balanceSpent += input.value || 0;
           }
-          this.decodedInfo.inputs.count++;
+          this.decodedInfo.inputs.count += 1;
         });
 
-        out.forEach(output => {
-          let item = {};
+        out.forEach((output) => {
+          const item = {};
           item.amount = output.value;
           if ('addresses' in output.scriptPubKey) {
+            // eslint-disable-next-line prefer-destructuring
             item.address = output.scriptPubKey.addresses[0];
             this.decodedInfo.outputs.push(item);
           }
         });
 
-        this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`
+        this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`;
         if (this.decodedInfo.inputs.value) {
-          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} Flux in the input(s).\n`
+          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} Flux in the input(s).\n`;
         }
-        this.decodedInfo.outputs.forEach(out => {
-           this.decodedInfoString += `Sending ${out.amount} Flux to ${out.address}\n`;
+        this.decodedInfo.outputs.forEach((output) => {
+          this.decodedInfoString += `Sending ${output.amount} Flux to ${output.address}\n`;
         });
       } catch (e) {
         console.log(e);
@@ -607,20 +735,14 @@ export default {
         const txhex = this.signedTx.rawtx;
         const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
         const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
-        console.log(txb);
-        let i = 0;
-        // eslint-disable-next-line no-unused-vars
-        for (const input of txb.inputs) {
+        for (let i = 0; i < txb.inputs.length; i += 1) {
           const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
           const { index } = txb.tx.ins[i];
-          console.log(txb.tx);
-          console.log(hash);
           const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
           // eslint-disable-next-line no-await-in-loop
           const tx = await axios.get(`${explorer}/api/tx/${hash}`);
           const value = Math.round(Number(tx.data.vout[index].value) * 1e8);
           txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
-          i += 1;
         }
         const tx = txb.buildIncomplete();
         this.signedTx.hex = tx.toHex();
@@ -644,6 +766,19 @@ export default {
     getValueHexBuffer(hex) {
       const buf = Buffer.from(hex, 'hex').reverse();
       return buf.toString('hex');
+    },
+    updateTitanNodeMessage(message) {
+      // Example Titan Node 15
+      if (message.includes('Titan Node')) {
+        const text = message;
+        const getPart = text.replace(/[^\d.]/g, ''); // returns '15'
+        const num = parseInt(getPart, 10); // returns 15
+        const newVal = num + 1; // returns 16
+        const reg = new RegExp(num); // create dynamic regexp
+        const newstring = text.replace(reg, newVal); // returns Titan Node 16
+        return newstring;
+      }
+      return '';
     },
   },
 };
@@ -713,7 +848,7 @@ table.center {
 }
 
 .popover {
-    white-space: pre-line;    
+    white-space: pre-line;
 }
 
 </style>

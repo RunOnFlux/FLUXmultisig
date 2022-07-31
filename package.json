@@ -1,6 +1,6 @@
 {
   "name": "fluxmultisig",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "FLUX multisig is a tool for easy operations with multisignature addresses",
   "main": "index.js",
   "scripts": {
@@ -23,19 +23,20 @@
   },
   "homepage": "https://github.com/RunOnFlux/FLUXmultisig#readme",
   "dependencies": {
-    "axios": "^0.26.1",
+    "axios": "^0.27.2",
     "bitgo-utxo-lib": "https://github.com/zelcore-io/bitgo-utxo-lib",
-    "core-js": "^3.22.2",
-    "vue": "^2.6.14"
+    "core-js": "^3.24.1",
+    "vue": "^2.7.8"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^4.5.15",
     "@vue/cli-plugin-eslint": "^4.5.15",
     "@vue/cli-service": "^4.5.15",
     "babel-eslint": "^10.1.0",
-    "eslint": "^6.8.0",
-    "eslint-plugin-vue": "6.2.2",
-    "vue-template-compiler": "^2.6.14"
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb-base": "~15.0.0",
+    "eslint-plugin-import": "~2.26.0",
+    "eslint-plugin-vue": "^9.3.0"
   },
   "eslintConfig": {
     "root": true,
