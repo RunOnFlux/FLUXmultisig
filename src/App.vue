@@ -133,51 +133,51 @@
       <p>
         This tool helps you build an unsigned transaction.
       </p>
-      <p></p>
+      <p />
       <button @click="isTitan = !isTitan; avoidFluxNodeAmounts = isTitan;">
         {{ isTitan ? 'USING Titan Features.' : '' }} Click to toggle titan features
       </button>
       <br>
       <div :style="{display: isTitan ? 'initial' : 'none'}">
-      <label><input
-        id="checkbox"
-        v-model="avoidFluxNodeAmounts"
-        aria-labelledby="avoindFluxNodeAmounts"
-        type="checkbox"
-        :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx"
-      >Avoid Flux Node Collateral Amounts</label>
-      <br>
-      <label><input
-        id="checkbox"
-        v-model="sendAllFlux"
-        aria-labelledby="sendAll"
-        type="checkbox"
-        :disabled="multipleTxes || createCollateralTx"
-      >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
-      <br>
-      <label><input
-        id="checkbox"
-        v-model="fillHotWalletWithRewards"
-        aria-labelledby="fillHotWithRewards"
-        type="checkbox"
-        @change="fillHotWalletWithRewardsCheckboxClicked($event.target.checked);"
-      >Fill Hot Wallet From Collateral Rewards</label>
-      <br>
-      <label><input
-        id="checkbox"
-        v-model="fillHotWalletFromDesposit"
-        aria-labelledby="fillHotWalletFromDesposit"
-        type="checkbox"
-        @change="fillHotWalletFromDepositCheckboxClicked($event.target.checked);"
-      >Fill Hot Wallet From Deposit Address</label>
-      <br>
-      <label><input
-        id="checkbox"
-        v-model="createCollateralTx"
-        aria-labelledby="createCollateralTx"
-        type="checkbox"
-        @change="createCollateralTxCheckboxClicked($event.target.checked);"
-      >Create Titan Collateral Transaction</label>
+        <label><input
+          id="checkbox"
+          v-model="avoidFluxNodeAmounts"
+          aria-labelledby="avoindFluxNodeAmounts"
+          type="checkbox"
+          :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx"
+        >Avoid Flux Node Collateral Amounts</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="sendAllFlux"
+          aria-labelledby="sendAll"
+          type="checkbox"
+          :disabled="multipleTxes || createCollateralTx"
+        >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="fillHotWalletWithRewards"
+          aria-labelledby="fillHotWithRewards"
+          type="checkbox"
+          @change="fillHotWalletWithRewardsCheckboxClicked($event.target.checked);"
+        >Fill Hot Wallet From Collateral Rewards</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="fillHotWalletFromDesposit"
+          aria-labelledby="fillHotWalletFromDesposit"
+          type="checkbox"
+          @change="fillHotWalletFromDepositCheckboxClicked($event.target.checked);"
+        >Fill Hot Wallet From Deposit Address</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="createCollateralTx"
+          aria-labelledby="createCollateralTx"
+          type="checkbox"
+          @change="createCollateralTxCheckboxClicked($event.target.checked);"
+        >Create Titan Collateral Transaction</label>
       </div>
 
       <div
@@ -225,12 +225,18 @@
         Build!
       </button>
       <br><br>
-      <div v-for="(item, index) in txinfoList" :key="item.id">
-        Information {{index}}: {{item}}
+      <div
+        v-for="(item, index) in txinfoList"
+        :key="item.id"
+      >
+        Information {{ index }}: {{ item }}
       </div>
       <br><br>
-      <div v-for="(item, index) in unsignedTxList" :key="item.id">
-        Raw Transaction {{index}}: {{item.hex}}
+      <div
+        v-for="(item, index) in unsignedTxList"
+        :key="item.id"
+      >
+        Raw Transaction {{ index }}: {{ item.hex }}
       </div>
     </div>
     <hr>
@@ -252,7 +258,7 @@
         Decode!
       </button>
       <br>
-      {{decodedInfoString}}
+      {{ decodedInfoString }}
       <br>
     </div>
     <hr>
@@ -378,7 +384,7 @@ export default {
           balanceSpent: 0,
           count: 0,
         },
-        outputs: []
+        outputs: [],
       },
       decodedInfoString: '',
       mainnetExplorer: 'https://explorer.runonflux.io',
@@ -444,12 +450,12 @@ export default {
         this.fillHotWalletFromDesposit = false;
         this.fillHotWalletWithRewards = false;
         this.sendAllFlux = false;
-        this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
-        this.unsignedTx.receiver = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
+        this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
+        this.unsignedTx.receiver = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
         this.unsignedTx.amount = 40000;
       } else {
-        this.unsignedTx.myAddress = "";
-        this.unsignedTx.receiver = "";
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
         this.unsignedTx.amount = 0;
       }
     },
@@ -458,36 +464,34 @@ export default {
         this.sendAllFlux = false;
       }
     },
-    
+
     fillHotWalletFromDepositCheckboxClicked(cb) {
       if (cb) {
         this.avoidFluxNodeAmounts = false;
         this.createCollateralTx = false;
         this.fillHotWalletWithRewards = false;
-        this.unsignedTx.myAddress = "t3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC";
-        this.unsignedTx.receiver = "t1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e";
+        this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
+        this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
         this.unsignedTx.amount = 0;
       } else {
-        this.unsignedTx.myAddress = "";
-        this.unsignedTx.receiver = "";
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
         this.unsignedTx.amount = 0;
       }
-
     },
     fillHotWalletWithRewardsCheckboxClicked(cb) {
       if (cb) {
         this.avoidFluxNodeAmounts = true;
         this.createCollateralTx = false;
         this.fillHotWalletFromDesposit = false;
-        this.unsignedTx.myAddress = "t3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ";
-        this.unsignedTx.receiver = "t1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e";
+        this.unsignedTx.myAddress = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
         this.unsignedTx.amount = 0;
       } else {
-        this.unsignedTx.myAddress = "";
-        this.unsignedTx.receiver = "";
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
         this.unsignedTx.amount = 0;
       }
-
     },
 
     async fetchUtxoSet() {
@@ -524,14 +528,14 @@ export default {
           satoshis: satoshisToSend,
         }];
         let count = 0;
-        
+
         this.unsignedTxList = [];
         this.txinfoList = [];
 
         const selectedCoins = new Set();
         const usedUtxos = new Set();
 
-        for (let loop = 0; loop < 5; loop +=1) {
+        for (let loop = 0; loop < 5; loop += 1) {
           history = [];
           satoshisSoFar = 0;
           recipients = [{
@@ -542,8 +546,8 @@ export default {
           selectedCoins.clear();
           const addressFrom = this.unsignedTx.myAddress;
           const addressTo = this.unsignedTx.receiver;
-          const amount = this.unsignedTx.amount;
-          let message = this.unsignedTx.message;
+          const { amount } = this.unsignedTx;
+          let { message } = this.unsignedTx;
 
           // if this isn't the first tx, update the message
           if (loop > 0) {
@@ -553,10 +557,10 @@ export default {
           this.unsignedTx = {
             myAddress: addressFrom,
             receiver: addressTo,
-            amount: amount,
-            message: message,
+            amount,
+            message,
             hex: '',
-          }
+          };
 
           if (this.coincontrol.selectedValueSats > 0) {
             for (let j = 0; j < this.coincontrol.selected.length; j += 1) {
@@ -581,6 +585,7 @@ export default {
               }
 
               if (usedUtxos.has(utxos[i].txid + utxos[i].vout)) {
+                // eslint-disable-next-line no-continue
                 continue;
               } else {
                 usedUtxos.add(utxos[i].txid + utxos[i].vout);
@@ -644,19 +649,19 @@ export default {
           let change = '';
 
           if ('outs' in tx) {
-            if (tx['outs'].length >= 1) {
-              destination = bitgotx.address.fromOutputScript(tx['outs'][0]['script'], network);
-              const amountSending = Number(tx['outs'][0]['value'] * 1e-8).toFixed(8);
-              this.txinfo = `Sending ${amountSending} FLUX to ${destination}`
+            if (tx.outs.length >= 1) {
+              destination = bitgotx.address.fromOutputScript(tx.outs[0].script, network);
+              const amountSending = Number(tx.outs[0].value * 1e-8).toFixed(8);
+              this.txinfo = `Sending ${amountSending} FLUX to ${destination}`;
             }
-            
-            if (tx['outs'].length >= 2) {
-              if (tx['outs'][1]['script'][0] === 0x6a) {
+
+            if (tx.outs.length >= 2) {
+              if (tx.outs[1].script[0] === 0x6a) {
                 // This is the message outpoint as it starts with OP_RETURN
               } else {
-                change = bitgotx.address.fromOutputScript(tx['outs'][1]['script'], network);
-                const amountChange = Number(tx['outs'][1]['value'] * 1e-8).toFixed(8);
-                this.txinfo +=` and sending back as change ${amountChange} FLUX to ${change}`
+                change = bitgotx.address.fromOutputScript(tx.outs[1].script, network);
+                const amountChange = Number(tx.outs[1].value * 1e-8).toFixed(8);
+                this.txinfo += ` and sending back as change ${amountChange} FLUX to ${change}`;
               }
             }
           }
@@ -678,44 +683,45 @@ export default {
         this.decodedInfo.outputs = [];
         this.decodedInfo.inputs.balanceSpent = 0;
         this.decodedInfo.inputs.count = 0;
-      
-        const data = {'hexstring': this.decodeRawHex};
 
-        var config = {
+        const data = { hexstring: this.decodeRawHex };
+
+        const config = {
           method: 'post',
           url: 'https://api.runonflux.io/daemon/decoderawtransaction/',
-          headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded'
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          data : data
+          data,
         };
 
         const response = await axios(config);
-        const vin = response.data.data.vin;
+        const { vin } = response.data.data;
         const out = response.data.data.vout;
 
-        vin.forEach(input => {
-          if ('value'  in input) {
+        vin.forEach((input) => {
+          if ('value' in input) {
             this.decodedInfo.inputs.balanceSpent += input.value || 0;
           }
-          this.decodedInfo.inputs.count++;
+          this.decodedInfo.inputs.count += 1;
         });
 
-        out.forEach(output => {
-          let item = {};
+        out.forEach((output) => {
+          const item = {};
           item.amount = output.value;
           if ('addresses' in output.scriptPubKey) {
+            // eslint-disable-next-line prefer-destructuring
             item.address = output.scriptPubKey.addresses[0];
             this.decodedInfo.outputs.push(item);
           }
         });
 
-        this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`
+        this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`;
         if (this.decodedInfo.inputs.value) {
-          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} Flux in the input(s).\n`
+          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} Flux in the input(s).\n`;
         }
-        this.decodedInfo.outputs.forEach(out => {
-           this.decodedInfoString += `Sending ${out.amount} Flux to ${out.address}\n`;
+        this.decodedInfo.outputs.forEach((output) => {
+          this.decodedInfoString += `Sending ${output.amount} Flux to ${output.address}\n`;
         });
       } catch (e) {
         console.log(e);
@@ -729,9 +735,7 @@ export default {
         const txhex = this.signedTx.rawtx;
         const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
         const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
-        let i = 0;
-        // eslint-disable-next-line no-unused-vars
-        for (const input of txb.inputs) {
+        for (let i = 0; i < txb.inputs.length; i += 1) {
           const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
           const { index } = txb.tx.ins[i];
           const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
@@ -739,7 +743,6 @@ export default {
           const tx = await axios.get(`${explorer}/api/tx/${hash}`);
           const value = Math.round(Number(tx.data.vout[index].value) * 1e8);
           txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
-          i += 1;
         }
         const tx = txb.buildIncomplete();
         this.signedTx.hex = tx.toHex();
@@ -766,13 +769,13 @@ export default {
     },
     updateTitanNodeMessage(message) {
       // Example Titan Node 15
-      if(message.includes("Titan Node")) {
-        var text = message;
-        var getPart = text.replace ( /[^\d.]/g, '' ); // returns '15'
-        var num = parseInt(getPart); // returns 15
-        var newVal = num+1; // returns 16
-        var reg = new RegExp(num); // create dynamic regexp
-        var newstring = text.replace ( reg, newVal ); // returns Titan Node 16
+      if (message.includes('Titan Node')) {
+        const text = message;
+        const getPart = text.replace(/[^\d.]/g, ''); // returns '15'
+        const num = parseInt(getPart, 10); // returns 15
+        const newVal = num + 1; // returns 16
+        const reg = new RegExp(num); // create dynamic regexp
+        const newstring = text.replace(reg, newVal); // returns Titan Node 16
         return newstring;
       }
       return '';
@@ -845,7 +848,7 @@ table.center {
 }
 
 .popover {
-    white-space: pre-line;    
+    white-space: pre-line;
 }
 
 </style>
