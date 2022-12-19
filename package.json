@@ -29,6 +29,7 @@
     "vue": "^2.7.8"
   },
   "devDependencies": {
+    "vue-template-compiler": "^2.0.0",
     "@vue/cli-plugin-babel": "^4.5.15",
     "@vue/cli-plugin-eslint": "^4.5.15",
     "@vue/cli-service": "^4.5.15",

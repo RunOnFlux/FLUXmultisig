@@ -322,6 +322,8 @@
 const bitgotx = require('bitgo-utxo-lib');
 const axios = require('axios');
 
+let utxosUsedInCurrentTransaction = {};
+
 export default {
   name: 'App',
   data() {
@@ -519,6 +521,7 @@ export default {
         const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
         const utx = await axios.get(`${explorer}/api/addr/${this.unsignedTx.myAddress}/utxo`);
         const utxos = utx.data;
+        utxosUsedInCurrentTransaction = {};
         let satoshisSoFar = 0;
         let history = [];
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount) * 1e8);
@@ -589,6 +592,7 @@ export default {
                 continue;
               } else {
                 usedUtxos.add(utxos[i].txid + utxos[i].vout);
+                utxosUsedInCurrentTransaction[utxos[i].txid + utxos[i].vout] = utxos[i].satoshis;
               }
 
               history = history.concat({
@@ -735,13 +739,51 @@ export default {
         const txhex = this.signedTx.rawtx;
         const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
         const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
+        let quickLoad = true;
+        // eslint-disable-next-line no-unused-vars
         for (let i = 0; i < txb.inputs.length; i += 1) {
           const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
           const { index } = txb.tx.ins[i];
           const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
-          // eslint-disable-next-line no-await-in-loop
-          const tx = await axios.get(`${explorer}/api/tx/${hash}`);
-          const value = Math.round(Number(tx.data.vout[index].value) * 1e8);
+          let value;
+
+          // Do a quick lookup in the utxos dictionary
+          if (hash + index in utxosUsedInCurrentTransaction) {
+            value = Math.round(Number(utxosUsedInCurrentTransaction[hash + index]));
+          } else if (quickLoad) {
+            // Only do it once
+            quickLoad = false;
+
+            // Fetch the first tx, so we can determine the address the inputs are coming from
+            /* eslint-disable no-await-in-loop */
+            const tx = await axios.get(`${explorer}/api/tx/${hash}`);
+            const addr = tx.data.vout[index].scriptPubKey.addresses[0];
+
+            // Get all utxos for that address with a single call
+            /* eslint-disable no-await-in-loop */
+            const utx = await axios.get(`${explorer}/api/addr/${addr}/utxo`);
+            const utxos = utx.data;
+
+            // Load utxo into dictionary
+            /* eslint-disable no-loop-func */
+            utxos.forEach((element) => {
+              utxosUsedInCurrentTransaction[element.txid + element.vout] = element.satoshis;
+            });
+
+            // Check the utxo dictionary again for the txid + index
+            if (hash + index in utxosUsedInCurrentTransaction) {
+              value = Math.round(Number(utxosUsedInCurrentTransaction[hash + index]));
+            } else {
+              // If not found use the value received when fetching the singleton txhash above.
+              value = Math.round(Number(tx.data.vout[index].value) * 1e8);
+            }
+          } else {
+            // If quick searches don't work, default to fetching tx one at a time.
+            /* eslint-disable no-await-in-loop */
+            const tx = await axios.get(`${explorer}/api/tx/${hash}`);
+            value = Math.round(Number(tx.data.vout[index].value) * 1e8);
+          }
+
           txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
         }
         const tx = txb.buildIncomplete();
