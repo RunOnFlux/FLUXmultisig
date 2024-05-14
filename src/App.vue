@@ -539,6 +539,7 @@ export default {
         const usedUtxos = new Set();
 
         for (let loop = 0; loop < 5; loop += 1) {
+          console.log('TX Loop:', loop);
           history = [];
           satoshisSoFar = 0;
           recipients = [{
@@ -676,6 +677,9 @@ export default {
             break;
           }
         }
+        console.log('All transactions built');
+        console.log(this.unsignedTxList.map((x) => x.hex));
+        console.log(JSON.stringify(this.unsignedTxList.map((x) => x.hex)));
       } catch (e) {
         console.log(e);
         this.unsignedTx.hex = e.message;
@@ -737,57 +741,76 @@ export default {
         const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
         const hashType = bitgotx.Transaction.SIGHASH_ALL;
         const txhex = this.signedTx.rawtx;
-        const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
-        const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
-        let quickLoad = true;
-        // eslint-disable-next-line no-unused-vars
-        for (let i = 0; i < txb.inputs.length; i += 1) {
-          const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
-          const { index } = txb.tx.ins[i];
-          const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
-          let value;
+        let txs = [this.signedTx.rawtx];
+        if (txhex.startsWith('[')) {
+          txs = JSON.parse(txhex);
+          // multiple txs
+        }
+        const signedTxs = [];
+        for (let t = 0; t < txs.length; t += 1) {
+          console.log('Signing tx:', t + 1, '/', txs.length);
+          const keyPair = bitgotx.ECPair.fromWIF(this.signedTx.privatekey, network);
+          const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txs[t], network), network);
+          let quickLoad = true;
+          // eslint-disable-next-line no-unused-vars
+          for (let i = 0; i < txb.inputs.length; i += 1) {
+            const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
+            const { index } = txb.tx.ins[i];
+            const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+            let value;
 
-          // Do a quick lookup in the utxos dictionary
-          if (hash + index in utxosUsedInCurrentTransaction) {
-            value = Math.round(Number(utxosUsedInCurrentTransaction[hash + index]));
-          } else if (quickLoad) {
-            // Only do it once
-            quickLoad = false;
-
-            // Fetch the first tx, so we can determine the address the inputs are coming from
-            /* eslint-disable no-await-in-loop */
-            const tx = await axios.get(`${explorer}/api/tx/${hash}`);
-            const addr = tx.data.vout[index].scriptPubKey.addresses[0];
-
-            // Get all utxos for that address with a single call
-            /* eslint-disable no-await-in-loop */
-            const utx = await axios.get(`${explorer}/api/addr/${addr}/utxo`);
-            const utxos = utx.data;
-
-            // Load utxo into dictionary
-            /* eslint-disable no-loop-func */
-            utxos.forEach((element) => {
-              utxosUsedInCurrentTransaction[element.txid + element.vout] = element.satoshis;
-            });
-
-            // Check the utxo dictionary again for the txid + index
+            // Do a quick lookup in the utxos dictionary
             if (hash + index in utxosUsedInCurrentTransaction) {
               value = Math.round(Number(utxosUsedInCurrentTransaction[hash + index]));
-            } else {
+            } else if (quickLoad) {
+            // Only do it once
+              quickLoad = false;
+
+              // Fetch the first tx, so we can determine the address the inputs are coming from
+              /* eslint-disable no-await-in-loop */
+              const tx = await axios.get(`${explorer}/api/tx/${hash}`);
+              const addr = tx.data.vout[index].scriptPubKey.addresses[0];
+
+              // Get all utxos for that address with a single call
+              /* eslint-disable no-await-in-loop */
+              const utx = await axios.get(`${explorer}/api/addr/${addr}/utxo`);
+              const utxos = utx.data;
+
+              // Load utxo into dictionary
+              /* eslint-disable no-loop-func */
+              utxos.forEach((element) => {
+                utxosUsedInCurrentTransaction[element.txid + element.vout] = element.satoshis;
+              });
+
+              // Check the utxo dictionary again for the txid + index
+              if (hash + index in utxosUsedInCurrentTransaction) {
+                value = Math.round(Number(utxosUsedInCurrentTransaction[hash + index]));
+              } else {
               // If not found use the value received when fetching the singleton txhash above.
-              value = Math.round(Number(tx.data.vout[index].value) * 1e8);
-            }
-          } else {
+                value = Math.round(Number(tx.data.vout[index].value) * 1e8);
+              }
+            } else {
             // If quick searches don't work, default to fetching tx one at a time.
             /* eslint-disable no-await-in-loop */
-            const tx = await axios.get(`${explorer}/api/tx/${hash}`);
-            value = Math.round(Number(tx.data.vout[index].value) * 1e8);
-          }
+              const tx = await axios.get(`${explorer}/api/tx/${hash}`);
+              value = Math.round(Number(tx.data.vout[index].value) * 1e8);
+            }
 
-          txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
+            txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
+          }
+          const tx = txb.buildIncomplete();
+          signedTxs.push(tx.toHex());
+          this.signedTx.hex = tx.toHex();
         }
-        const tx = txb.buildIncomplete();
-        this.signedTx.hex = tx.toHex();
+        if (signedTxs.length === 1) {
+          console.log(signedTxs[0]);
+          // eslint-disable-next-line prefer-destructuring
+          this.signedTx.hex = signedTxs[0];
+        } else {
+          console.log(JSON.stringify(signedTxs));
+          this.signedTx.hex = 'See console for multiple transactions';
+        }
+        console.log('All transactions signed');
       } catch (e) {
         console.log(e);
         this.signedTx.hex = e.message;
