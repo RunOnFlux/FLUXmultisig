@@ -314,6 +314,27 @@
       <br><br>
       Finalised Transaction: {{ finalisedTx.hex }}
     </div>
+    <hr>
+    <div>
+      <h3>
+        Submit Transaction
+      </h3>
+      <p>
+        This tool submits a transaction that was previously finalized.
+      </p>
+      Transaction to submit: <textarea
+        v-model="submitedTx.rawtx"
+        aria-labelledby="transactionToSubmit"
+        class="pubkey"
+      />
+      <br>
+      <br>
+      <button @click="submitTransaction">
+        Submit!
+      </button>
+      <br><br>
+      Submit Transaction: {{ submitedTx.hex }}
+    </div>
   </div>
 </template>
 
@@ -356,6 +377,10 @@ export default {
         hex: '',
       },
       finalisedTx: {
+        rawtx: '',
+        hex: '',
+      },
+      submitedTx: {
         rawtx: '',
         hex: '',
       },
@@ -734,6 +759,45 @@ export default {
       } catch (e) {
         console.log(e);
         this.decodedInfoString = e.message;
+      }
+    },
+    async submitTransaction() {
+      try {
+        const txhex = this.submitedTx.rawtx;
+        let txs = [this.submitedTx.rawtx];
+        if (txhex.startsWith('[')) {
+          txs = JSON.parse(txhex);
+          // multiple txs
+        }
+
+        const promises = txs.map((tx, index) => {
+          console.log('Submitting tx:', index + 1, '/', txs.length);
+          const data = { hexstring: tx };
+          const config = {
+            method: 'post',
+            url: 'https://api.runonflux.io/daemon/sendrawtransaction/',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            data,
+          };
+
+          return axios(config);
+        });
+
+        const responses = await Promise.all(promises);
+        const submittedTxs = responses.map((response) => response.data);
+        if (submittedTxs.length === 1) {
+          console.log(submittedTxs[0]);
+          // eslint-disable-next-line prefer-destructuring
+          this.submitedTx.hex = submittedTxs[0];
+        } else {
+          console.log(JSON.stringify(submittedTxs));
+          this.submitedTx.hex = 'See console for multiple transactions';
+        }
+        console.log('All transactions submitted');
+      } catch (e) {
+        console.log(e);
       }
     },
     async signTransaction() {
