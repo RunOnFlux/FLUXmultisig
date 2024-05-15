@@ -800,7 +800,6 @@ export default {
           }
           const tx = txb.buildIncomplete();
           signedTxs.push(tx.toHex());
-          this.signedTx.hex = tx.toHex();
         }
         if (signedTxs.length === 1) {
           console.log(signedTxs[0]);
@@ -820,12 +819,30 @@ export default {
       try {
         const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
         const txhex = this.finalisedTx.rawtx;
-        const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txhex, network), network);
-        const tx = txb.build();
-        this.finalisedTx.hex = tx.toHex();
+        let txs = [this.signedTx.rawtx];
+        if (txhex.startsWith('[')) {
+          txs = JSON.parse(txhex);
+          // multiple txs
+        }
+        const finalizedTxs = [];
+        for (let t = 0; t < txs.length; t += 1) {
+          console.log('Finalizing tx:', t + 1, '/', txs.length);
+          const txb = bitgotx.TransactionBuilder.fromTransaction(bitgotx.Transaction.fromHex(txs[t], network), network);
+          const tx = txb.build();
+          finalizedTxs.push(tx.toHex());
+        }
+        if (finalizedTxs.length === 1) {
+          console.log(finalizedTxs[0]);
+          // eslint-disable-next-line prefer-destructuring
+          this.finalisedTx.hex = finalizedTxs[0];
+        } else {
+          console.log(JSON.stringify(finalizedTxs));
+          this.finalisedTx.hex = 'See console for multiple tx finalization';
+        }
+        console.log('All transactions finalized');
       } catch (e) {
         console.log(e);
-        this.signedTx.hex = e.message;
+        this.finalisedTx.hex = e.message;
       }
     },
     getValueHexBuffer(hex) {
