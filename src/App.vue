@@ -219,7 +219,17 @@
           @change="generateMultiTxesCheckboxClicked($event.target.checked);"
         ></label>
         <br>
+        <br>
+        <label> How many transactions to build
+          <input
+            v-model="nTxLoopCount"
+            type="number"
+            min="1"
+            max="30"
+            value="5"
+          ></label>
       </div>
+      <br>
       <br>
       <button @click="buildUnsignedRawTx">
         Build!
@@ -362,6 +372,7 @@ export default {
       publickeys: [],
       inputs: 1,
       reqsig: 1,
+      nTxLoopCount: 5,
       unsignedTx: {
         myAddress: '',
         receiver: '',
@@ -491,7 +502,6 @@ export default {
         this.sendAllFlux = false;
       }
     },
-
     fillHotWalletFromDepositCheckboxClicked(cb) {
       if (cb) {
         this.avoidFluxNodeAmounts = false;
@@ -563,7 +573,7 @@ export default {
         const selectedCoins = new Set();
         const usedUtxos = new Set();
 
-        for (let loop = 0; loop < 5; loop += 1) {
+        for (let loop = 0; loop < this.nTxLoopCount; loop += 1) {
           console.log('TX Loop:', loop);
           history = [];
           satoshisSoFar = 0;
