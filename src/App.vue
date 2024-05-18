@@ -893,7 +893,7 @@ export default {
       try {
         const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
         const txhex = this.finalisedTx.rawtx;
-        let txs = [this.signedTx.rawtx];
+        let txs = [this.finalisedTx.rawtx];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
