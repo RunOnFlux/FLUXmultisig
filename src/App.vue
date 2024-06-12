@@ -3,7 +3,10 @@
     <button @click="isTestnet = !isTestnet">
       USING {{ isTestnet ? 'TESTNET' : 'MAINNET' }}. Click to use {{ isTestnet ? 'MAINNET' : 'TESTNET' }}
     </button>
-    <h1>Welcome to FLUX multisig</h1>
+    <button @click="chain === 'flux' ? chain = 'bitcoin' : chain = 'flux'">
+      USING {{ chain === 'flux' ? 'Flux' : 'Bitcoin' }}. Click to use {{ chain === 'flux' ? 'Bitcoin' : 'Flux' }}
+    </button>
+    <h1>Welcome to FLUX, BTC multisig Tool</h1>
     <hr>
     <h3>
       Keypair generation tool
@@ -250,7 +253,10 @@
       </div>
     </div>
     <hr>
-    <div style="white-space: pre-line;">
+    <div
+      v-if="chain === 'bitcoin'"
+      style="white-space: pre-line;"
+    >
       <h3>
         Decode Transaction
       </h3>
@@ -284,9 +290,9 @@
         class="pubkey"
       >
       <br>
-      My Multisig address Redeem Script: <textarea
+      My Multisig address {{ chain === 'flux' ? 'Redeem Script' : 'Witness Script' }} <textarea
         v-model="signedTx.redeemScript"
-        aria-labelledby="redeemScript"
+        :aria-labelledby="chain === 'flux' ? 'redeemScript' : 'withnessScript'"
         class="pubkey"
       />
       <br>
@@ -411,6 +417,7 @@ export default {
       avoidFluxNodeAmounts: false,
       sendAllFlux: false,
       isTestnet: false,
+      chain: 'flux',
       isTitan: false,
       multipleTxes: false,
       createCollateralTx: false,
@@ -427,11 +434,26 @@ export default {
       decodedInfoString: '',
       mainnetExplorer: 'https://explorer.runonflux.io',
       testnetExplorer: 'https://testnet.runonflux.io',
+      bitcoinBlockbook: 'https://blockbookbitcoin.app.runonflux.io',
+      testnetBitcoinBlockbook: 'https://blockbookbitcointestnet.app.runonflux.io',
     };
   },
   methods: {
+    getNetwork() {
+      let network = bitgotx.networks.zelcash;
+      if (this.chain === 'bitcoin' && !this.isTestnet) {
+        network = bitgotx.networks.bitcoin;
+      } else if (this.chain === 'bitcoin' && this.isTestnet) {
+        network = bitgotx.networks.testnet;
+      } else if (this.chain === 'flux' && !this.isTestnet) {
+        network = bitgotx.networks.zelcash;
+      } else if (this.chain === 'flux' && this.isTestnet) {
+        network = bitgotx.networks.fluxtestnet;
+      }
+      return network;
+    },
     generateKeypair() {
-      const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
+      const network = this.getNetwork();
       const keyPair = bitgotx.ECPair.makeRandom({ network });
       const pubKey = keyPair.getPublicKeyBuffer().toString('hex');
 
@@ -444,14 +466,26 @@ export default {
 
         const pubKeysBuffer = filteredPK.map((hex) => Buffer.from(hex, 'hex'));
 
-        const redeemScript = bitgotx.script.multisig.output.encode(Number(this.reqsig), pubKeysBuffer);
-        const redeemScriptHex = redeemScript.toString('hex');
-        const scriptPubKey = bitgotx.script.scriptHash.output.encode(bitgotx.crypto.hash160(redeemScript));
+        if (this.chain === 'flux') {
+          const redeemScript = bitgotx.script.multisig.output.encode(Number(this.reqsig), pubKeysBuffer);
+          const redeemScriptHex = redeemScript.toString('hex');
+          const scriptPubKey = bitgotx.script.scriptHash.output.encode(bitgotx.crypto.hash160(redeemScript));
 
-        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
-        const address = bitgotx.address.fromOutputScript(scriptPubKey, network);
-        this.multisig.address = address;
-        this.multisig.redeemScript = redeemScriptHex;
+          const network = this.getNetwork();
+          const address = bitgotx.address.fromOutputScript(scriptPubKey, network);
+          this.multisig.address = address;
+          this.multisig.redeemScript = redeemScriptHex;
+        } else {
+          const witnessScript = bitgotx.script.multisig.output.encode(Number(this.reqsig), pubKeysBuffer);
+          const witnessScriptHex = witnessScript.toString('hex');
+          const scriptPubKey = bitgotx.script.witnessScriptHash.output.encode(
+            bitgotx.crypto.sha256(witnessScript),
+          );
+          const network = this.getNetwork();
+          const address = bitgotx.address.fromOutputScript(scriptPubKey, network);
+          this.multisig.address = address;
+          this.multisig.redeemScript = witnessScriptHex;
+        }
       } catch (e) {
         console.log(e);
         this.multisig.address = e.message;
@@ -538,10 +572,33 @@ export default {
         this.coincontrol.errorMsg = '';
         this.coincontrol.currentPage = 1;
         this.coincontrol.selected = [];
-        const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
-        const utx = await axios.get(`${explorer}/api/addr/${this.coincontrol.address}/utxo`);
-
-        this.coincontrol.utxos = utx.data;
+        if (this.chain === 'flux') {
+          const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+          const utx = await axios.get(`${explorer}/api/addr/${this.coincontrol.address}/utxo`);
+          const fetchedUtxos = utx.data;
+          const utxos = fetchedUtxos.map((x) => ({
+            txid: x.txid,
+            vout: x.vout,
+            scriptPubKey: x.scriptPubKey,
+            satoshis: Number(x.satoshis),
+            confirmations: x.confirmations,
+            coinbase: x.coinbase || false,
+          }));
+          this.coincontrol.utxos = utxos;
+        } else {
+          const blockbook = this.isTestnet ? this.testnetBitcoinBlockbook : this.bitcoinBlockbook;
+          const utx = await axios.get(`${blockbook}/api/v2/utxo/${this.coincontrol.address}`);
+          const fetchedUtxos = utx.data;
+          const utxos = fetchedUtxos.map((x) => ({
+            txid: x.txid,
+            vout: x.vout,
+            scriptPubKey: '', // that is fine, not needed
+            satoshis: Number(x.value),
+            confirmations: x.confirmations,
+            coinbase: x.coinbase || false,
+          }));
+          this.coincontrol.utxos = utxos;
+        }
         this.num_pages();
         this.get_rows();
         this.coincontrol.show = true;
@@ -552,10 +609,33 @@ export default {
     },
     async buildUnsignedRawTx() {
       try {
-        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
-        const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
-        const utx = await axios.get(`${explorer}/api/addr/${this.unsignedTx.myAddress}/utxo`);
-        const utxos = utx.data;
+        const network = this.getNetwork();
+        let utxos = [];
+        if (this.chain === 'flux') {
+          const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+          const utx = await axios.get(`${explorer}/api/addr/${this.unsignedTx.myAddress}/utxo`);
+          const fetchedUtxos = utx.data;
+          utxos = fetchedUtxos.map((x) => ({
+            txid: x.txid,
+            vout: x.vout,
+            scriptPubKey: x.scriptPubKey,
+            satoshis: Number(x.satoshis),
+            confirmations: x.confirmations,
+            coinbase: x.coinbase || false,
+          }));
+        } else {
+          const blockbook = this.isTestnet ? this.testnetBitcoinBlockbook : this.bitcoinBlockbook;
+          const utx = await axios.get(`${blockbook}/api/v2/utxo/${this.unsignedTx.myAddress}`);
+          const fetchedUtxos = utx.data;
+          utxos = fetchedUtxos.map((x) => ({
+            txid: x.txid,
+            vout: x.vout,
+            scriptPubKey: '', // that is fine, not needed
+            satoshis: Number(x.value),
+            confirmations: x.confirmations,
+            coinbase: x.coinbase || false,
+          }));
+        }
         utxosUsedInCurrentTransaction = {};
         let satoshisSoFar = 0;
         let history = [];
@@ -674,9 +754,17 @@ export default {
             }
           }
           const txb = new bitgotx.TransactionBuilder(network, satoshisfeesToSend);
-          txb.setVersion(4);
-          txb.setVersionGroupId(0x892F2085);
-          history.forEach((x) => txb.addInput(x.txid, x.vout));
+          if (this.chain === 'flux') {
+            txb.setVersion(4);
+            txb.setVersionGroupId(0x892F2085);
+          }
+          if (this.chain === 'btc') {
+            const RBFsequence = 0xffffffff - 2;
+            history.forEach((x) => txb.addInput(x.txid, x.vout, RBFsequence));
+          } else {
+            history.forEach((x) => txb.addInput(x.txid, x.vout));
+          }
+
           recipients.forEach((x) => txb.addOutput(x.address, x.satoshis));
           if (this.unsignedTx.message !== '') {
             const data = Buffer.from(this.unsignedTx.message, 'utf8');
@@ -692,7 +780,7 @@ export default {
             if (tx.outs.length >= 1) {
               destination = bitgotx.address.fromOutputScript(tx.outs[0].script, network);
               const amountSending = Number(tx.outs[0].value * 1e-8).toFixed(8);
-              this.txinfo = `Sending ${amountSending} FLUX to ${destination}`;
+              this.txinfo = `Sending ${amountSending} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} to ${destination}`;
             }
 
             if (tx.outs.length >= 2) {
@@ -701,7 +789,7 @@ export default {
               } else {
                 change = bitgotx.address.fromOutputScript(tx.outs[1].script, network);
                 const amountChange = Number(tx.outs[1].value * 1e-8).toFixed(8);
-                this.txinfo += ` and sending back as change ${amountChange} FLUX to ${change}`;
+                this.txinfo += ` and sending back as change ${amountChange} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} to ${change}`;
               }
             }
           }
@@ -761,10 +849,10 @@ export default {
 
         this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`;
         if (this.decodedInfo.inputs.value) {
-          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} Flux in the input(s).\n`;
+          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} in the input(s).\n`;
         }
         this.decodedInfo.outputs.forEach((output) => {
-          this.decodedInfoString += `Sending ${output.amount} Flux to ${output.address}\n`;
+          this.decodedInfoString += `Sending ${output.amount} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} to ${output.address}\n`;
         });
       } catch (e) {
         console.log(e);
@@ -781,14 +869,41 @@ export default {
         }
 
         const promises = txs.map((tx, index) => {
+          if (this.chain === 'flux' && !this.isTestnet) {
+            console.log('Submitting tx:', index + 1, '/', txs.length);
+
+            const data = { hexstring: tx };
+            const config = {
+              method: 'post',
+              url: 'https://api.runonflux.io/daemon/sendrawtransaction/',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              data,
+            };
+
+            return axios(config);
+          }
+          if (this.chain === 'flux' && this.isTestnet) {
+            console.log('Submitting tx:', index + 1, '/', txs.length);
+
+            const data = {
+              rawtx: tx,
+            };
+            const config = {
+              method: 'post',
+              url: `https://${this.testnetExplorer}/api/tx/send`,
+              data,
+            };
+
+            return axios(config);
+          }
           console.log('Submitting tx:', index + 1, '/', txs.length);
-          const data = { hexstring: tx };
+
+          const data = tx;
           const config = {
             method: 'post',
-            url: 'https://api.runonflux.io/daemon/sendrawtransaction/',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            url: this.isTestnet ? `https://${this.testnetBitcoinBlockbook}/api/v2/sendtx/` : `https://${this.bitcoinBlockbook}/api/v2/sendtx/`,
             data,
           };
 
@@ -812,7 +927,7 @@ export default {
     },
     async signTransaction() {
       try {
-        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
+        const network = this.getNetwork();
         const hashType = bitgotx.Transaction.SIGHASH_ALL;
         const txhex = this.signedTx.rawtx;
         let txs = [this.signedTx.rawtx];
@@ -830,7 +945,6 @@ export default {
           for (let i = 0; i < txb.inputs.length; i += 1) {
             const hash = this.getValueHexBuffer(txb.tx.ins[i].hash.toString('hex'));
             const { index } = txb.tx.ins[i];
-            const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
             let value;
 
             // Do a quick lookup in the utxos dictionary
@@ -841,14 +955,48 @@ export default {
               quickLoad = false;
 
               // Fetch the first tx, so we can determine the address the inputs are coming from
+              let addr;
+              let tx;
               /* eslint-disable no-await-in-loop */
-              const tx = await axios.get(`${explorer}/api/tx/${hash}`);
-              const addr = tx.data.vout[index].scriptPubKey.addresses[0];
+              if (this.chain === 'flux') {
+                const exp = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+                tx = await axios.get(`${exp}/api/tx/${hash}`);
+                // eslint-disable-next-line prefer-destructuring
+                addr = tx.data.vout[index].scriptPubKey.addresses[0];
+              } else {
+                const blockbook = this.isTestnet ? this.testnetBitcoinBlockbook : this.bitcoinBlockbook;
+                tx = await axios.get(`${blockbook}/api/tx/${hash}`);
+                // eslint-disable-next-line prefer-destructuring
+                addr = tx.data.vout[index].scriptPubKey.addresses[0];
+              }
 
               // Get all utxos for that address with a single call
-              /* eslint-disable no-await-in-loop */
-              const utx = await axios.get(`${explorer}/api/addr/${addr}/utxo`);
-              const utxos = utx.data;
+              let utxos = [];
+              if (this.chain === 'flux') {
+                const exp = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+                const utx = await axios.get(`${exp}/api/addr/${addr}/utxo`);
+                const fetchedUtxos = utx.data;
+                utxos = fetchedUtxos.map((x) => ({
+                  txid: x.txid,
+                  vout: x.vout,
+                  scriptPubKey: x.scriptPubKey,
+                  satoshis: Number(x.satoshis),
+                  confirmations: x.confirmations,
+                  coinbase: x.coinbase || false,
+                }));
+              } else {
+                const blockbook = this.isTestnet ? this.testnetBitcoinBlockbook : this.bitcoinBlockbook;
+                const utx = await axios.get(`${blockbook}/api/v2/utxo/${addr}`);
+                const fetchedUtxos = utx.data;
+                utxos = fetchedUtxos.map((x) => ({
+                  txid: x.txid,
+                  vout: x.vout,
+                  scriptPubKey: '', // that is fine, not needed
+                  satoshis: Number(x.value),
+                  confirmations: x.confirmations,
+                  coinbase: x.coinbase || false,
+                }));
+              }
 
               // Load utxo into dictionary
               /* eslint-disable no-loop-func */
@@ -865,8 +1013,14 @@ export default {
               }
             } else {
             // If quick searches don't work, default to fetching tx one at a time.
-            /* eslint-disable no-await-in-loop */
-              const tx = await axios.get(`${explorer}/api/tx/${hash}`);
+              let tx;
+              if (this.chain === 'flux') {
+                const exp = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
+                tx = await axios.get(`${exp}/api/tx/${hash}`);
+              } else {
+                const blockbook = this.isTestnet ? this.testnetBitcoinBlockbook : this.bitcoinBlockbook;
+                tx = await axios.get(`${blockbook}/api/tx/${hash}`);
+              }
               value = Math.round(Number(tx.data.vout[index].value) * 1e8);
             }
 
@@ -891,7 +1045,7 @@ export default {
     },
     finaliseTransaction() {
       try {
-        const network = this.isTestnet ? bitgotx.networks.fluxtestnet : bitgotx.networks.zelcash;
+        const network = this.getNetwork();
         const txhex = this.finalisedTx.rawtx;
         let txs = [this.finalisedTx.rawtx];
         if (txhex.startsWith('[')) {
