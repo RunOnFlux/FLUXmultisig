@@ -3,7 +3,7 @@
     <button @click="isTestnet = !isTestnet">
       USING {{ isTestnet ? 'TESTNET' : 'MAINNET' }}. Click to use {{ isTestnet ? 'MAINNET' : 'TESTNET' }}
     </button>
-    <button @click="chain === 'flux' ? chain = 'bitcoin' : chain = 'flux'">
+    <button @click="chain === 'flux' ? chain = 'bitcoin' : (chain = 'flux', unsignedTx.fee = 0)">
       USING {{ chain === 'flux' ? 'Flux' : 'Bitcoin' }}. Click to use {{ chain === 'flux' ? 'Bitcoin' : 'Flux' }}
     </button>
     <h1>Welcome to FLUX, BTC multisig Tool</h1>
@@ -207,6 +207,13 @@
         class="pubkey"
         :disabled="sendAllFlux || createCollateralTx"
       >
+      <div v-if="chain === 'bitcoin'">
+        <br>
+        Fee to Send: <input
+          v-model="unsignedTx.fee"
+          class="pubkey"
+        >
+      </div>
       <br>
       Message to Send: <input
         v-model="unsignedTx.message"
@@ -383,6 +390,7 @@ export default {
         myAddress: '',
         receiver: '',
         amount: 0,
+        fee: 0,
         message: '',
         hex: '',
       },
@@ -640,7 +648,7 @@ export default {
         let satoshisSoFar = 0;
         let history = [];
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount) * 1e8);
-        const satoshisfeesToSend = 0;
+        const satoshisfeesToSend = Math.round(Number(this.unsignedTx.fee) * 1e8);
         let recipients = [{
           address: this.unsignedTx.receiver,
           satoshis: satoshisToSend,
@@ -679,6 +687,7 @@ export default {
             amount,
             message,
             hex: '',
+            fee: this.unsignedTx.fee,
           };
 
           if (this.coincontrol.selectedValueSats > 0) {
@@ -1024,7 +1033,7 @@ export default {
               value = Math.round(Number(tx.data.vout[index].value) * 1e8);
             }
 
-            txb.sign(i, keyPair, Buffer.from(this.signedTx.redeemScript, 'hex'), hashType, value);
+            txb.sign(i, keyPair, this.chain !== 'bitcoin' ? Buffer.from(this.signedTx.redeemScript, 'hex') : '', hashType, value, this.chain === 'bitcoin' ? Buffer.from(this.signedTx.redeemScript, 'hex') : '');
           }
           const tx = txb.buildIncomplete();
           signedTxs.push(tx.toHex());
