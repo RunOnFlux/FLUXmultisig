@@ -881,7 +881,7 @@ export default {
           if (this.chain === 'flux' && !this.isTestnet) {
             console.log('Submitting tx:', index + 1, '/', txs.length);
 
-            const data = { hexstring: tx };
+            const data = { hexstring: tx, allowhighfees: true };
             const config = {
               method: 'post',
               url: 'https://api.runonflux.io/daemon/sendrawtransaction/',
