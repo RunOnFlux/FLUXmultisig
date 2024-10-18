@@ -764,7 +764,7 @@ export default {
             txb.setVersion(4);
             txb.setVersionGroupId(0x892F2085);
           }
-          if (this.chain === 'btc') {
+          if (this.chain === 'bitcoin') {
             const RBFsequence = 0xffffffff - 2;
             history.forEach((x) => txb.addInput(x.txid, x.vout, RBFsequence));
           } else {
@@ -898,7 +898,7 @@ export default {
             };
             const config = {
               method: 'post',
-              url: `https://${this.testnetExplorer}/api/tx/send`,
+              url: `${this.testnetExplorer}/api/tx/send`,
               data,
             };
 
@@ -909,7 +909,7 @@ export default {
           const data = tx;
           const config = {
             method: 'post',
-            url: this.isTestnet ? `https://${this.testnetBitcoinBlockbook}/api/v2/sendtx/` : `https://${this.bitcoinBlockbook}/api/v2/sendtx/`,
+            url: this.isTestnet ? `${this.testnetBitcoinBlockbook}/api/v2/sendtx/` : `${this.bitcoinBlockbook}/api/v2/sendtx/`,
             data,
           };
 
