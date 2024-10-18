@@ -260,10 +260,7 @@
       </div>
     </div>
     <hr>
-    <div
-      v-if="chain === 'bitcoin'"
-      style="white-space: pre-line;"
-    >
+    <div style="white-space: pre-line;">
       <h3>
         Decode Transaction
       </h3>
