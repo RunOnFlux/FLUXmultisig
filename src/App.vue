@@ -644,8 +644,8 @@ export default {
         utxosUsedInCurrentTransaction = {};
         let satoshisSoFar = 0;
         let history = [];
-        const satoshisToSend = Math.round(Number(this.unsignedTx.amount) * 1e8);
-        const satoshisfeesToSend = Math.round(Number(this.unsignedTx.fee) * 1e8);
+        const satoshisToSend = Math.round(Number(this.unsignedTx.amount.toString().replace(',', '.')) * 1e8);
+        const satoshisfeesToSend = Math.round(Number(this.unsignedTx.fee.toString().replace(',', '.')) * 1e8);
         let recipients = [{
           address: this.unsignedTx.receiver,
           satoshis: satoshisToSend,
