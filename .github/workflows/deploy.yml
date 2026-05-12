@@ -1,0 +1,88 @@
+name: Deploy to master
+
+# Builds the Vite app on every push to `production` and publishes the
+# resulting dist/ contents at the root of `master`, which is what
+# GitHub Pages serves. Replaces the manual master-swap procedure.
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-master
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Capture source commit info
+        id: source
+        run: |
+          {
+            echo "sha=$(git rev-parse --short HEAD)"
+            echo "long_sha=$(git rev-parse HEAD)"
+            # Escape newlines/special chars in the subject for output safety
+            msg=$(git log -1 --pretty=format:%s HEAD | tr -d '\r')
+            echo "msg=${msg}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Stage dist outside the worktree
+        run: |
+          rm -rf /tmp/dist-build
+          mv dist /tmp/dist-build
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Switch to master and swap contents
+        run: |
+          git fetch origin master
+          git checkout master
+          # Remove any prior layout (Vue CLI's css/+js/, Vite's assets/, etc.)
+          rm -rf assets css js favicon.ico index.html
+          mv /tmp/dist-build/* .
+          # In case dist contains dotfiles in the future
+          shopt -s dotglob nullglob
+          if [ -d /tmp/dist-build ] && [ "$(ls -A /tmp/dist-build 2>/dev/null)" ]; then
+            mv /tmp/dist-build/* .
+          fi
+          rm -rf /tmp/dist-build
+
+      - name: Commit and push
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes in built output; nothing to deploy."
+            exit 0
+          fi
+          git commit -m "$(cat <<EOF
+          deploy: ${{ steps.source.outputs.msg }} (${{ steps.source.outputs.sha }})
+
+          Built from production ${{ steps.source.outputs.long_sha }}
+          EOF
+          )"
+          git push origin master
