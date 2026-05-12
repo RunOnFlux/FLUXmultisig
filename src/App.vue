@@ -696,7 +696,7 @@ export default {
           }
 
           for (let i = 0; i < utxos.length; i += 1) {
-            if (utxos[i].height !== 0) {
+            if (utxos[i].confirmations > 0) {
               if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
                 // eslint-disable-next-line no-continue
                 continue;
