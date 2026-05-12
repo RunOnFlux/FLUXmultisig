@@ -3,7 +3,7 @@
     <button @click="isTestnet = !isTestnet">
       USING {{ isTestnet ? 'TESTNET' : 'MAINNET' }}. Click to use {{ isTestnet ? 'MAINNET' : 'TESTNET' }}
     </button>
-    <button @click="chain === 'flux' ? chain = 'bitcoin' : (chain = 'flux', unsignedTx.fee = 0)">
+    <button @click="toggleChain">
       USING {{ chain === 'flux' ? 'Flux' : 'Bitcoin' }}. Click to use {{ chain === 'flux' ? 'Bitcoin' : 'Flux' }}
     </button>
     <h1>Welcome to FLUX, BTC multisig Tool</h1>
@@ -27,7 +27,13 @@
         Copy
       </button>
       <br>
-      Private Key: {{ keypair.privatekey }}
+      Private Key: {{ keypair.privatekey ? (showPrivateKey ? keypair.privatekey : '••••••••••••••••••••••') : '' }}
+      <button
+        v-if="keypair.privatekey"
+        @click="showPrivateKey = !showPrivateKey"
+      >
+        {{ showPrivateKey ? 'Hide' : 'Show' }}
+      </button>
       <button
         v-if="keypair.privatekey"
         @click="copyToClipboard(keypair.privatekey)"
@@ -95,8 +101,11 @@
         class="pubkey"
       >
       <p>
-        <button @click="fetchUtxoSet">
-          View Spendable Transactions
+        <button
+          :disabled="loading.fetchUtxos"
+          @click="fetchUtxoSet"
+        >
+          {{ loading.fetchUtxos ? 'Fetching...' : 'View Spendable Transactions' }}
         </button>
         <br><br>
         {{ coincontrol.errorMsg }}
@@ -275,7 +284,7 @@
         <br>
         <label> How many transactions to build
           <input
-            v-model="nTxLoopCount"
+            v-model.number="nTxLoopCount"
             type="number"
             min="1"
             max="30"
@@ -284,8 +293,11 @@
       </div>
       <br>
       <br>
-      <button @click="buildUnsignedRawTx">
-        Build!
+      <button
+        :disabled="loading.build"
+        @click="buildUnsignedRawTx"
+      >
+        {{ loading.build ? 'Building...' : 'Build!' }}
       </button>
       <br><br>
       <div
@@ -357,8 +369,12 @@
       </p>
       My Private Key: <input
         v-model="signedTx.privatekey"
+        :type="showPrivateKey ? 'text' : 'password'"
         class="pubkey"
       >
+      <button @click="showPrivateKey = !showPrivateKey">
+        {{ showPrivateKey ? 'Hide' : 'Show' }}
+      </button>
       <br>
       My Multisig address {{ chain === 'flux' ? 'Redeem Script' : 'Witness Script' }} <textarea
         v-model="signedTx.redeemScript"
@@ -373,8 +389,11 @@
       />
       <br>
       <br>
-      <button @click="signTransaction">
-        Sign!
+      <button
+        :disabled="loading.sign"
+        @click="signTransaction"
+      >
+        {{ loading.sign ? 'Signing...' : 'Sign!' }}
       </button>
       <br><br>
       <div
@@ -471,8 +490,11 @@
       />
       <br>
       <br>
-      <button @click="submitTransaction">
-        Submit!
+      <button
+        :disabled="loading.submit"
+        @click="submitTransaction"
+      >
+        {{ loading.submit ? 'Submitting...' : 'Submit!' }}
       </button>
       <br><br>
       <div
@@ -582,13 +604,63 @@ export default {
         outputs: [],
       },
       decodedInfoString: '',
+      showPrivateKey: false,
+      loading: {
+        fetchUtxos: false,
+        build: false,
+        sign: false,
+        submit: false,
+      },
       mainnetExplorer: 'https://explorer.runonflux.io',
       testnetExplorer: 'https://testnet.runonflux.io',
       bitcoinBlockbook: 'https://blockbookbitcoin.app.runonflux.io',
       testnetBitcoinBlockbook: 'https://blockbookbitcointestnet.app.runonflux.io',
     };
   },
+  watch: {
+    publickeys: {
+      handler() { this.saveMultisigSetup(); },
+      deep: true,
+    },
+    inputs() { this.saveMultisigSetup(); },
+    reqsig() { this.saveMultisigSetup(); },
+  },
+  mounted() {
+    try {
+      const saved = localStorage.getItem('fluxmultisig:multisigSetup');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (Array.isArray(data.publickeys)) this.publickeys = data.publickeys;
+        if (Number.isFinite(data.inputs)) this.inputs = data.inputs;
+        if (data.reqsig !== undefined) this.reqsig = data.reqsig;
+      }
+    } catch (e) {
+      console.log('Failed to load multisig setup:', e);
+    }
+  },
   methods: {
+    saveMultisigSetup() {
+      try {
+        localStorage.setItem('fluxmultisig:multisigSetup', JSON.stringify({
+          publickeys: this.publickeys,
+          inputs: this.inputs,
+          reqsig: this.reqsig,
+        }));
+      } catch (e) {
+        console.log('Failed to save multisig setup:', e);
+      }
+    },
+    toggleChain() {
+      if (this.chain === 'flux') {
+        this.chain = 'bitcoin';
+        if (!this.unsignedTx.fee || Number(this.unsignedTx.fee) === 0) {
+          this.unsignedTx.fee = 0.00001;
+        }
+      } else {
+        this.chain = 'flux';
+        this.unsignedTx.fee = 0;
+      }
+    },
     async copyToClipboard(text) {
       try {
         await navigator.clipboard.writeText(text);
@@ -744,6 +816,7 @@ export default {
     },
 
     async fetchUtxoSet() {
+      this.loading.fetchUtxos = true;
       try {
         this.coincontrol.selectedValueSats = 0;
         this.coincontrol.selectedValueAmount = 0;
@@ -783,9 +856,12 @@ export default {
       } catch (e) {
         console.log(e);
         this.coincontrol.errorMsg = e.message;
+      } finally {
+        this.loading.fetchUtxos = false;
       }
     },
     async buildUnsignedRawTx() {
+      this.loading.build = true;
       try {
         this.buildError = '';
         this.unsignedTxList = [];
@@ -994,6 +1070,8 @@ export default {
       } catch (e) {
         console.log(e);
         this.buildError = e.message;
+      } finally {
+        this.loading.build = false;
       }
     },
     decodeRawTransaction() {
@@ -1031,11 +1109,12 @@ export default {
       }
     },
     async submitTransaction() {
+      this.loading.submit = true;
       try {
         this.submitedTx.hex = '';
         this.submitedTxList = [];
-        const txhex = this.submitedTx.rawtx;
-        let txs = [this.submitedTx.rawtx];
+        const txhex = this.submitedTx.rawtx.trim();
+        let txs = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
@@ -1105,16 +1184,19 @@ export default {
       } catch (e) {
         console.log(e);
         this.submitedTx.hex = e.message;
+      } finally {
+        this.loading.submit = false;
       }
     },
     async signTransaction() {
+      this.loading.sign = true;
       try {
         this.signedTx.hex = '';
         this.signedTxList = [];
         const network = this.getNetwork();
         const hashType = bitgotx.Transaction.SIGHASH_ALL;
-        const txhex = this.signedTx.rawtx;
-        let txs = [this.signedTx.rawtx];
+        const txhex = this.signedTx.rawtx.trim();
+        let txs = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
@@ -1218,6 +1300,8 @@ export default {
       } catch (e) {
         console.log(e);
         this.signedTx.hex = e.message;
+      } finally {
+        this.loading.sign = false;
       }
     },
     finaliseTransaction() {
@@ -1225,8 +1309,8 @@ export default {
         this.finalisedTx.hex = '';
         this.finalisedTxList = [];
         const network = this.getNetwork();
-        const txhex = this.finalisedTx.rawtx;
-        let txs = [this.finalisedTx.rawtx];
+        const txhex = this.finalisedTx.rawtx.trim();
+        let txs = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
