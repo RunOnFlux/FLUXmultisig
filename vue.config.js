@@ -2,6 +2,7 @@ const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 const webpack = require('webpack');
 
 module.exports = {
+  publicPath: process.env.NODE_ENV === 'production' ? '/FLUXmultisig/' : '/',
   configureWebpack: {
     plugins: [
       new NodePolyfillPlugin(),
