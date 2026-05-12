@@ -136,6 +136,7 @@
                   v-model="coincontrol.selected[(coincontrol.currentPage - 1) * 10 + index]"
                   type="checkbox"
                   class="checkbox"
+                  aria-label="Select UTXO"
                   @change="checkboxClicked($event.target.checked, (coincontrol.currentPage - 1) * 10 + index);"
                 >
               </td>
@@ -330,6 +331,7 @@
       </p>
       Transaction to decode: <textarea
         v-model="decodeRawHex"
+        aria-label="Transaction to decode"
         class="pubkey"
       />
       <br>
@@ -360,11 +362,13 @@
       <br>
       My Multisig address {{ chain === 'flux' ? 'Redeem Script' : 'Witness Script' }} <textarea
         v-model="signedTx.redeemScript"
+        :aria-label="chain === 'flux' ? 'Redeem Script' : 'Witness Script'"
         class="pubkey"
       />
       <br>
       Transaction to sign: <textarea
         v-model="signedTx.rawtx"
+        aria-label="Transaction to sign"
         class="pubkey"
       />
       <br>
@@ -416,6 +420,7 @@
       </p>
       Transaction to finalise: <textarea
         v-model="finalisedTx.rawtx"
+        aria-label="Transaction to finalise"
         class="pubkey"
       />
       <br>
@@ -464,6 +469,7 @@
       </p>
       Transaction to submit: <textarea
         v-model="submitedTx.rawtx"
+        aria-label="Transaction to submit"
         class="pubkey"
       />
       <br>
