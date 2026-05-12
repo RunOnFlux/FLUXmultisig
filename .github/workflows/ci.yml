@@ -1,0 +1,46 @@
+name: CI
+
+# Runs lint, unit tests, and a production build on every PR (and on direct
+# pushes to master, for the rare cases something lands without a PR).
+# Pairs with deploy.yml — that workflow handles publishing, this one handles
+# checking changes before they get merged.
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# A new push on the same PR cancels the in-flight run for that PR, so we
+# don't spend CI minutes on stale commits.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Unit tests
+        run: yarn test
+
+      - name: Production build
+        run: yarn build
