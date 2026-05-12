@@ -2,7 +2,7 @@
   <div
     id="app"
     class="app"
-    :class="{ 'app--testnet': isTestnet }"
+    :class="{ 'app--testnet': isTestnet, 'app--light': theme === 'light' }"
   >
     <div
       class="grain"
@@ -17,6 +17,14 @@
           <span class="topbar__sub">Multisig</span>
         </div>
         <div class="topbar__toggles">
+          <button
+            class="pill pill--theme"
+            :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+            @click="toggleTheme"
+          >
+            <span class="pill__glyph">{{ theme === 'dark' ? '☾' : '☀' }}</span>
+            {{ theme === 'dark' ? 'Dark' : 'Light' }}
+          </button>
           <button
             class="pill"
             :class="{ 'pill--warn': isTestnet }"
@@ -856,6 +864,9 @@ const axios = require('axios');
 
 let utxosUsedInCurrentTransaction = {};
 
+const UTXO_CACHE_KEY = 'fluxmultisig:utxoCache';
+const UTXO_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
 export default {
   name: 'App',
   data() {
@@ -935,6 +946,7 @@ export default {
       },
       decodedInfoString: '',
       showPrivateKey: false,
+      theme: 'dark',
       loading: {
         fetchUtxos: false,
         build: false,
@@ -967,6 +979,13 @@ export default {
     } catch (e) {
       console.log('Failed to load multisig setup:', e);
     }
+    try {
+      const t = localStorage.getItem('fluxmultisig:theme');
+      if (t === 'light' || t === 'dark') this.theme = t;
+    } catch (e) {
+      console.log('Failed to load theme:', e);
+    }
+    this.loadUtxoCache();
   },
   methods: {
     saveMultisigSetup() {
@@ -989,6 +1008,71 @@ export default {
       } else {
         this.chain = 'flux';
         this.unsignedTx.fee = 0;
+      }
+    },
+    toggleTheme() {
+      this.theme = this.theme === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('fluxmultisig:theme', this.theme);
+      } catch (e) {
+        console.log('Failed to save theme:', e);
+      }
+    },
+    loadUtxoCache() {
+      try {
+        const raw = localStorage.getItem(UTXO_CACHE_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw);
+        const now = Date.now();
+        Object.keys(stored).forEach((k) => {
+          const entry = stored[k];
+          if (entry && Number.isFinite(entry.satoshis) && entry.expiresAt > now) {
+            utxosUsedInCurrentTransaction[k] = entry.satoshis;
+          }
+        });
+      } catch (e) {
+        console.log('Failed to load UTXO cache:', e);
+      }
+    },
+    saveUtxoCache() {
+      try {
+        const now = Date.now();
+        const out = {};
+        // Re-read what's persisted so older entries keep their original TTL,
+        // and merge in any new keys from the in-memory cache with a fresh TTL.
+        try {
+          const raw = localStorage.getItem(UTXO_CACHE_KEY);
+          if (raw) {
+            const stored = JSON.parse(raw);
+            Object.keys(stored).forEach((k) => {
+              const entry = stored[k];
+              if (entry && Number.isFinite(entry.satoshis) && entry.expiresAt > now) {
+                out[k] = entry;
+              }
+            });
+          }
+        } catch (e) {
+          // ignore, will overwrite
+        }
+        Object.keys(utxosUsedInCurrentTransaction).forEach((k) => {
+          if (!out[k]) {
+            out[k] = {
+              satoshis: utxosUsedInCurrentTransaction[k],
+              expiresAt: now + UTXO_CACHE_TTL_MS,
+            };
+          }
+        });
+        localStorage.setItem(UTXO_CACHE_KEY, JSON.stringify(out));
+      } catch (e) {
+        console.log('Failed to save UTXO cache:', e);
+      }
+    },
+    clearUtxoCache() {
+      utxosUsedInCurrentTransaction = {};
+      try {
+        localStorage.removeItem(UTXO_CACHE_KEY);
+      } catch (e) {
+        console.log('Failed to clear UTXO cache:', e);
       }
     },
     async copyToClipboard(text) {
@@ -1223,7 +1307,6 @@ export default {
             coinbase: x.coinbase || false,
           }));
         }
-        utxosUsedInCurrentTransaction = {};
         let satoshisSoFar = 0;
         let history = [];
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount.toString().replace(',', '.')) * 1e8);
@@ -1397,6 +1480,7 @@ export default {
         console.log('All transactions built');
         console.log(this.unsignedTxList.map((x) => x.hex));
         console.log(JSON.stringify(this.unsignedTxList.map((x) => x.hex)));
+        this.saveUtxoCache();
       } catch (e) {
         console.log(e);
         this.buildError = e.message;
@@ -1627,6 +1711,7 @@ export default {
         }
         this.signedTxList = signedTxs;
         console.log('All transactions signed');
+        this.saveUtxoCache();
       } catch (e) {
         console.log(e);
         this.signedTx.hex = e.message;
@@ -1736,6 +1821,29 @@ html, body {
   --accent-glow: rgba(255, 184, 77, 0.16);
 }
 
+.app--light {
+  --bg: #faf7ee;
+  --bg-elev: #f1eee5;
+  --surface: #e8e5dc;
+  --surface-2: #ddd9cf;
+  --border: #cfcabc;
+  --border-strong: #a8a394;
+  --text: #1a1916;
+  --text-dim: #5e5b54;
+  --text-faint: #94918a;
+  --accent: #5a8c20;
+  --accent-deep: #3d6814;
+  --accent-glow: rgba(90, 140, 32, 0.16);
+  --danger: #c93b1d;
+  --warn: #a86510;
+}
+
+.app--light.app--testnet {
+  --accent: #a86510;
+  --accent-deep: #7a4a09;
+  --accent-glow: rgba(168, 101, 16, 0.16);
+}
+
 /* grain overlay */
 .grain {
   pointer-events: none;
@@ -1748,12 +1856,17 @@ html, body {
   background-size: 220px 220px;
 }
 
+.app--light .grain {
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+}
+
 /* topbar */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(11, 12, 10, 0.86);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -1835,7 +1948,16 @@ html, body {
 
 .pill__dot--accent { background: var(--accent); }
 .pill--warn { border-color: var(--warn); color: var(--warn); }
-.pill--warn .pill__dot { background: var(--warn); box-shadow: 0 0 8px rgba(255, 184, 77, 0.4); }
+.pill--warn .pill__dot { background: var(--warn); box-shadow: 0 0 8px color-mix(in srgb, var(--warn) 40%, transparent); }
+
+.pill__glyph {
+  font-size: 13px;
+  line-height: 1;
+  display: inline-block;
+  color: var(--text-dim);
+}
+
+.pill--theme { letter-spacing: 0.14em; }
 
 /* container */
 .container {
@@ -1847,8 +1969,8 @@ html, body {
 
 /* hero */
 .hero {
-  margin-bottom: 96px;
-  padding-bottom: 56px;
+  margin-bottom: 64px;
+  padding-bottom: 40px;
   border-bottom: 1px solid var(--border);
   animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
@@ -1856,10 +1978,10 @@ html, body {
 .hero__title {
   font-family: var(--font-serif);
   font-weight: 400;
-  font-size: clamp(56px, 9vw, 124px);
-  line-height: 0.92;
-  letter-spacing: -0.025em;
-  margin: 0 0 32px;
+  font-size: clamp(36px, 5.5vw, 72px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
   color: var(--text);
 }
 
@@ -1961,7 +2083,7 @@ html, body {
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-dim);
   margin-bottom: 6px;
 }
 
@@ -2058,11 +2180,7 @@ html, body {
 .btn--primary {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(200, 255, 61, 0.04);
-}
-
-.app--testnet .btn--primary {
-  background: rgba(255, 184, 77, 0.06);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 .btn--primary:hover {
@@ -2072,7 +2190,7 @@ html, body {
 }
 
 .btn--primary:disabled {
-  background: rgba(200, 255, 61, 0.02);
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -2104,7 +2222,7 @@ html, body {
 .btn--toggle-on {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(200, 255, 61, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .btn__dot {
@@ -2278,7 +2396,7 @@ html, body {
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-dim);
   min-width: 110px;
   flex-shrink: 0;
 }
@@ -2308,18 +2426,14 @@ html, body {
 
 .alert--err {
   border-color: var(--danger);
-  background: rgba(255, 92, 58, 0.07);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
   color: var(--danger);
 }
 
 .alert--ok {
   border-color: var(--accent);
-  background: rgba(200, 255, 61, 0.05);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--accent);
-}
-
-.app--testnet .alert--ok {
-  background: rgba(255, 184, 77, 0.06);
 }
 
 /* table */
@@ -2358,7 +2472,7 @@ html, body {
 }
 
 .table tbody tr:last-child td { border-bottom: none; }
-.table tbody tr:hover td { background: rgba(200, 255, 61, 0.025); }
+.table tbody tr:hover td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
 
 .td-clip {
   max-width: 280px;
@@ -2394,7 +2508,7 @@ html, body {
 .pag__num--active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(200, 255, 61, 0.06);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 /* info list */
@@ -2539,13 +2653,13 @@ html, body {
 .response-list__status--ok {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(200, 255, 61, 0.06);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 .response-list__status--fail {
   color: var(--danger);
   border-color: var(--danger);
-  background: rgba(255, 92, 58, 0.07);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 
 .response-list__dot {
@@ -2597,7 +2711,7 @@ html, body {
   .panel__num { font-size: 40px; min-width: 56px; }
   .panel__title { font-size: 22px; }
   .panel__desc, .panel__body { padding-left: 0; }
-  .hero__title { font-size: clamp(40px, 10vw, 72px); }
+  .hero__title { font-size: clamp(32px, 8vw, 56px); }
   .kv__label { min-width: auto; }
   .response-list__row { flex-wrap: wrap; }
   .response-list__row > .btn { margin-left: 0; }
