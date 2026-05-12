@@ -2534,10 +2534,9 @@ html, body {
 }
 
 .check em {
-  font-style: italic;
-  color: var(--text-faint);
+  font-style: normal;
+  color: var(--text-dim);
   font-size: 12px;
-  font-family: var(--font-serif);
 }
 
 .check-inline {
