@@ -222,6 +222,12 @@
               v-model="coincontrol.address"
               class="input"
             >
+            <div
+              v-if="coinControlAddressError"
+              class="field__error"
+            >
+              {{ coinControlAddressError }}
+            </div>
           </div>
           <div class="actions">
             <button
@@ -455,6 +461,12 @@
               class="input"
               :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards || consolidateRewards"
             >
+            <div
+              v-if="myAddressError"
+              class="field__error"
+            >
+              {{ myAddressError }}
+            </div>
           </div>
           <div class="field">
             <label class="field__label">Receiver address</label>
@@ -463,6 +475,12 @@
               class="input"
               :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards || consolidateRewards"
             >
+            <div
+              v-if="receiverAddressError"
+              class="field__error"
+            >
+              {{ receiverAddressError }}
+            </div>
           </div>
           <div class="field">
             <label class="field__label">Amount to send</label>
@@ -629,6 +647,12 @@
               class="textarea"
               rows="4"
             />
+            <div
+              v-if="decodeHexError"
+              class="field__error"
+            >
+              {{ decodeHexError }}
+            </div>
           </div>
           <div class="actions">
             <button
@@ -690,6 +714,12 @@
               class="textarea"
               rows="4"
             />
+            <div
+              v-if="signTxHexError"
+              class="field__error"
+            >
+              {{ signTxHexError }}
+            </div>
           </div>
           <div class="actions">
             <button
@@ -929,7 +959,13 @@
 
 import bitgotx from 'bitgo-utxo-lib';
 import axios from 'axios';
-import { truncateHex, updateTitanNodeMessage } from './utils';
+import {
+  truncateHex,
+  updateTitanNodeMessage,
+  resolveNetwork,
+  isValidHex,
+  isValidAddress,
+} from './utils';
 
 let utxosUsedInCurrentTransaction = {};
 
@@ -1060,6 +1096,44 @@ export default {
         .sort(([, a], [, b]) => b - a)
         .map(([amount, count]) => ({ amount, count }));
     },
+    addressErrorLabel() {
+      return `Invalid ${this.chain} ${this.isTestnet ? 'testnet ' : ''}address`;
+    },
+    myAddressError() {
+      const a = this.unsignedTx.myAddress;
+      if (!a) return '';
+      return isValidAddress(a, this.chain, this.isTestnet) ? '' : this.addressErrorLabel;
+    },
+    receiverAddressError() {
+      const a = this.unsignedTx.receiver;
+      if (!a) return '';
+      return isValidAddress(a, this.chain, this.isTestnet) ? '' : this.addressErrorLabel;
+    },
+    coinControlAddressError() {
+      const a = this.coincontrol.address;
+      if (!a) return '';
+      return isValidAddress(a, this.chain, this.isTestnet) ? '' : this.addressErrorLabel;
+    },
+    decodeHexError() {
+      const raw = (this.decodeRawHex || '').trim();
+      if (!raw) return '';
+      return isValidHex(raw) ? '' : 'Invalid hex';
+    },
+    signTxHexError() {
+      const raw = (this.signedTx.rawtx || '').trim();
+      if (!raw) return '';
+      if (raw.startsWith('[')) {
+        try {
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr)) return 'Expected JSON array of hex strings';
+          if (!arr.every((s) => isValidHex(s))) return 'Array contains invalid hex';
+          return '';
+        } catch (e) {
+          return 'Invalid JSON array';
+        }
+      }
+      return isValidHex(raw) ? '' : 'Invalid hex';
+    },
   },
   watch: {
     publickeys: {
@@ -1189,17 +1263,7 @@ export default {
       }
     },
     getNetwork() {
-      let network = bitgotx.networks.zelcash;
-      if (this.chain === 'bitcoin' && !this.isTestnet) {
-        network = bitgotx.networks.bitcoin;
-      } else if (this.chain === 'bitcoin' && this.isTestnet) {
-        network = bitgotx.networks.testnet;
-      } else if (this.chain === 'flux' && !this.isTestnet) {
-        network = bitgotx.networks.zelcash;
-      } else if (this.chain === 'flux' && this.isTestnet) {
-        network = bitgotx.networks.fluxtestnet;
-      }
-      return network;
+      return resolveNetwork(bitgotx.networks, this.chain, this.isTestnet);
     },
     generateKeypair() {
       const network = this.getNetwork();
@@ -2297,6 +2361,14 @@ html, body {
   font-size: 11px;
   color: var(--text-faint);
   margin-left: 8px;
+}
+
+.field__error {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--danger);
+  letter-spacing: 0.04em;
 }
 
 .input,
