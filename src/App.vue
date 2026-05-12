@@ -431,7 +431,6 @@ export default {
       decodeRawHex: '',
       decodedInfo: {
         inputs: {
-          balanceSpent: 0,
           count: 0,
         },
         outputs: [],
@@ -814,51 +813,34 @@ export default {
         this.unsignedTx.hex = e.message;
       }
     },
-    async decodeRawTransaction() {
+    decodeRawTransaction() {
       try {
         this.decodedInfoString = '';
         this.decodedInfo.outputs = [];
-        this.decodedInfo.inputs.balanceSpent = 0;
         this.decodedInfo.inputs.count = 0;
 
-        const data = { hexstring: this.decodeRawHex };
+        const network = this.getNetwork();
+        const tx = bitgotx.Transaction.fromHex(this.decodeRawHex, network);
 
-        const config = {
-          method: 'post',
-          url: 'https://api.runonflux.io/daemon/decoderawtransaction/',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          data,
-        };
+        this.decodedInfo.inputs.count = tx.ins.length;
 
-        const response = await axios(config);
-        const { vin } = response.data.data;
-        const out = response.data.data.vout;
-
-        vin.forEach((input) => {
-          if ('value' in input) {
-            this.decodedInfo.inputs.balanceSpent += input.value || 0;
-          }
-          this.decodedInfo.inputs.count += 1;
-        });
-
-        out.forEach((output) => {
-          const item = {};
-          item.amount = output.value;
-          if ('addresses' in output.scriptPubKey) {
-            // eslint-disable-next-line prefer-destructuring
-            item.address = output.scriptPubKey.addresses[0];
-            this.decodedInfo.outputs.push(item);
+        tx.outs.forEach((out) => {
+          // OP_RETURN outputs have no recipient address
+          if (out.script[0] === 0x6a) return;
+          try {
+            this.decodedInfo.outputs.push({
+              amount: Number(out.value * 1e-8).toFixed(8),
+              address: bitgotx.address.fromOutputScript(out.script, network),
+            });
+          } catch (e) {
+            // Unknown script type; skip
           }
         });
 
+        const unit = this.chain === 'flux' ? 'FLUX' : 'BTC';
         this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`;
-        if (this.decodedInfo.inputs.value) {
-          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} in the input(s).\n`;
-        }
         this.decodedInfo.outputs.forEach((output) => {
-          this.decodedInfoString += `Sending ${output.amount} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} to ${output.address}\n`;
+          this.decodedInfoString += `Sending ${output.amount} ${unit} to ${output.address}\n`;
         });
       } catch (e) {
         console.log(e);
