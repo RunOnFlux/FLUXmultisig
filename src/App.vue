@@ -1084,17 +1084,15 @@ export default {
       return buf.toString('hex');
     },
     updateTitanNodeMessage(message) {
-      // Example Titan Node 15
-      if (message.includes('Titan Node')) {
-        const text = message;
-        const getPart = text.replace(/[^\d.]/g, ''); // returns '15'
-        const num = parseInt(getPart, 10); // returns 15
-        const newVal = num + 1; // returns 16
-        const reg = new RegExp(num); // create dynamic regexp
-        const newstring = text.replace(reg, newVal); // returns Titan Node 16
-        return newstring;
-      }
-      return '';
+      // Match the integer following "Titan Node" and increment it.
+      // Anchoring on the label avoids collisions with other digits in the message.
+      // Non-Titan messages are dropped on subsequent txs (multi-tx is a Titan-only flow).
+      const match = message.match(/Titan Node (\d+)/);
+      if (!match) return '';
+      return message.replace(
+        /Titan Node \d+/,
+        `Titan Node ${parseInt(match[1], 10) + 1}`,
+      );
     },
   },
 };
