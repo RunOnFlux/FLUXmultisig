@@ -564,7 +564,7 @@
           >
             <div class="kv__row">
               <span class="kv__label">Raw transaction</span>
-              <code class="kv__val">{{ unsignedTxList[0].hex }}</code>
+              <code class="kv__val">{{ truncateHex(unsignedTxList[0].hex) }}</code>
               <button
                 class="btn btn--ghost btn--micro"
                 @click="copyToClipboard(unsignedTxList[0].hex)"
@@ -596,7 +596,7 @@
                   class="kv__row"
                 >
                   <span class="kv__label">Tx {{ index }}</span>
-                  <code class="kv__val">{{ item.hex }}</code>
+                  <code class="kv__val">{{ truncateHex(item.hex) }}</code>
                   <button
                     class="btn btn--ghost btn--micro"
                     @click="copyToClipboard(item.hex)"
@@ -715,7 +715,7 @@
           >
             <div class="kv__row">
               <span class="kv__label">Signed transaction</span>
-              <code class="kv__val">{{ signedTxList[0] }}</code>
+              <code class="kv__val">{{ truncateHex(signedTxList[0]) }}</code>
               <button
                 class="btn btn--ghost btn--micro"
                 @click="copyToClipboard(signedTxList[0])"
@@ -747,7 +747,7 @@
                   class="kv__row"
                 >
                   <span class="kv__label">Tx {{ index }}</span>
-                  <code class="kv__val">{{ hex }}</code>
+                  <code class="kv__val">{{ truncateHex(hex) }}</code>
                   <button
                     class="btn btn--ghost btn--micro"
                     @click="copyToClipboard(hex)"
@@ -801,7 +801,7 @@
           >
             <div class="kv__row">
               <span class="kv__label">Finalised transaction</span>
-              <code class="kv__val">{{ finalisedTxList[0] }}</code>
+              <code class="kv__val">{{ truncateHex(finalisedTxList[0]) }}</code>
               <button
                 class="btn btn--ghost btn--micro"
                 @click="copyToClipboard(finalisedTxList[0])"
@@ -833,7 +833,7 @@
                   class="kv__row"
                 >
                   <span class="kv__label">Tx {{ index }}</span>
-                  <code class="kv__val">{{ hex }}</code>
+                  <code class="kv__val">{{ truncateHex(hex) }}</code>
                   <button
                     class="btn btn--ghost btn--micro"
                     @click="copyToClipboard(hex)"
@@ -1175,6 +1175,10 @@ export default {
       } catch (e) {
         console.log('Failed to clear UTXO cache:', e);
       }
+    },
+    truncateHex(hex, prefix = 25, suffix = 25) {
+      if (!hex || hex.length <= prefix + suffix + 1) return hex;
+      return `${hex.slice(0, prefix)}…${hex.slice(-suffix)}`;
     },
     async copyToClipboard(text) {
       try {
