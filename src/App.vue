@@ -61,24 +61,33 @@
   </div>
 </template>
 
-<script>
-import { reactive } from 'vue';
+<script lang="ts">
+import { defineComponent, reactive } from 'vue';
 import TopBar from './components/TopBar.vue';
 import TestnetStripe from './components/TestnetStripe.vue';
 import CopyToast from './components/CopyToast.vue';
 import Hero from './components/Hero.vue';
 import Keypair from './components/Keypair.vue';
 import Multisig from './components/Multisig.vue';
-import CoinControl from './components/CoinControl.vue';
+import CoinControl, { type CoinControlState } from './components/CoinControl.vue';
 import BuildTx from './components/BuildTx.vue';
 import DecodeTx from './components/DecodeTx.vue';
 import SignTx from './components/SignTx.vue';
 import FinaliseTx from './components/FinaliseTx.vue';
 import SubmitTx from './components/SubmitTx.vue';
 import Foot from './components/Foot.vue';
+import type { Chain } from './composables/network';
 import { loadFromStorage as loadUtxoCache } from './composables/utxoCache';
 
-export default {
+interface Data {
+  chain: Chain;
+  isTestnet: boolean;
+  theme: 'dark' | 'light';
+  showPrivateKey: boolean;
+  coinControl: CoinControlState;
+}
+
+export default defineComponent({
   name: 'App',
   components: {
     TopBar,
@@ -98,13 +107,13 @@ export default {
   provide() {
     return { coinControl: this.coinControl };
   },
-  data() {
+  data(): Data {
     return {
       chain: 'flux',
       isTestnet: false,
       theme: 'dark',
       showPrivateKey: false,
-      coinControl: reactive({
+      coinControl: reactive<CoinControlState>({
         address: '',
         utxos: [],
         selected: [],
@@ -119,7 +128,7 @@ export default {
       }),
     };
   },
-  mounted() {
+  mounted(): void {
     try {
       const t = localStorage.getItem('fluxmultisig:theme');
       if (t === 'light' || t === 'dark') this.theme = t;
@@ -129,7 +138,7 @@ export default {
     loadUtxoCache();
   },
   methods: {
-    toggleTheme() {
+    toggleTheme(): void {
       this.theme = this.theme === 'dark' ? 'light' : 'dark';
       try {
         localStorage.setItem('fluxmultisig:theme', this.theme);
@@ -137,11 +146,11 @@ export default {
         console.log('Failed to save theme:', e);
       }
     },
-    toggleChain() {
+    toggleChain(): void {
       this.chain = this.chain === 'flux' ? 'bitcoin' : 'flux';
     },
   },
-};
+});
 </script>
 
 <style>

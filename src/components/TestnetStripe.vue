@@ -11,6 +11,8 @@
   </div>
 </template>
 
-<script>
-export default { name: 'TestnetStripe' };
+<script lang="ts">
+import { defineComponent } from 'vue';
+
+export default defineComponent({ name: 'TestnetStripe' });
 </script>

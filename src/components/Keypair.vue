@@ -53,31 +53,34 @@
   </section>
 </template>
 
-<script>
-import { bitgo, getNetwork } from '../composables/network';
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
+import { bitgo, getNetwork, type Chain } from '../composables/network';
 import { copyToClipboard } from '../composables/copyToast';
 
-export default {
+interface Keypair { publickey: string; privatekey: string }
+
+export default defineComponent({
   name: 'KeypairSection',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
     showPrivateKey: { type: Boolean, required: true },
   },
   emits: ['toggle-show-private-key'],
-  data() {
+  data(): { keypair: Keypair } {
     return {
       keypair: { publickey: '', privatekey: '' },
     };
   },
   methods: {
     copyToClipboard,
-    generateKeypair() {
+    generateKeypair(): void {
       const network = getNetwork(this.chain, this.isTestnet);
       const keyPair = bitgo.ECPair.makeRandom({ network });
       this.keypair.publickey = keyPair.getPublicKeyBuffer().toString('hex');
       this.keypair.privatekey = keyPair.toWIF();
     },
   },
-};
+});
 </script>

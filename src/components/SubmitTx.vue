@@ -64,22 +64,31 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
 import axios from 'axios';
 import {
   TESTNET_FLUX_EXPLORER,
   MAINNET_BTC_BLOCKBOOK,
   TESTNET_BTC_BLOCKBOOK,
+  type Chain,
 } from '../composables/network';
 import { copyToClipboard } from '../composables/copyToast';
 
-export default {
+interface SubmitResult { ok: boolean; status: number | null; data: unknown }
+interface Data {
+  submitedTx: { rawtx: string; hex: string };
+  submitedTxList: SubmitResult[];
+  loading: boolean;
+}
+
+export default defineComponent({
   name: 'SubmitTx',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
   },
-  data() {
+  data(): Data {
     return {
       submitedTx: { rawtx: '', hex: '' },
       submitedTxList: [],
@@ -88,13 +97,13 @@ export default {
   },
   methods: {
     copyToClipboard,
-    async submit() {
+    async submit(): Promise<void> {
       this.loading = true;
       try {
         this.submitedTx.hex = '';
         this.submitedTxList = [];
         const txhex = this.submitedTx.rawtx.trim();
-        let txs = [txhex];
+        let txs: string[] = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
@@ -123,17 +132,18 @@ export default {
           return axios({ method: 'post', url, data: tx });
         });
         const results = await Promise.allSettled(promises);
-        this.submitedTxList = results.map((result) => {
+        this.submitedTxList = results.map((result): SubmitResult => {
           if (result.status === 'fulfilled') {
             const body = result.value.data;
-            const fluxStyleError = body && typeof body === 'object' && body.status === 'error';
+            const fluxStyleError = body && typeof body === 'object' && (body as { status?: string }).status === 'error';
             return {
               ok: !fluxStyleError,
               status: result.value.status,
               data: body,
             };
           }
-          const err = result.reason;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const err = result.reason as any;
           const httpStatus = (err && err.response && err.response.status) || null;
           const errData = (err && err.response && err.response.data) || (err && err.message) || String(err);
           return { ok: false, status: httpStatus, data: errData };
@@ -142,11 +152,11 @@ export default {
         console.log(`Submitted ${okCount}/${this.submitedTxList.length} transactions`);
       } catch (e) {
         console.log(e);
-        this.submitedTx.hex = e.message;
+        this.submitedTx.hex = e instanceof Error ? e.message : String(e);
       } finally {
         this.loading = false;
       }
     },
   },
-};
+});
 </script>

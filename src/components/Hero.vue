@@ -11,6 +11,8 @@
   </section>
 </template>
 
-<script>
-export default { name: 'HeroSection' };
+<script lang="ts">
+import { defineComponent } from 'vue';
+
+export default defineComponent({ name: 'HeroSection' });
 </script>

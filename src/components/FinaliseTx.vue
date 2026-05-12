@@ -86,18 +86,24 @@
   </section>
 </template>
 
-<script>
-import { bitgo, getNetwork } from '../composables/network';
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
+import { bitgo, getNetwork, type Chain } from '../composables/network';
 import { copyToClipboard } from '../composables/copyToast';
 import { truncateHex } from '../utils';
 
-export default {
+interface Data {
+  finalisedTx: { rawtx: string; hex: string };
+  finalisedTxList: string[];
+}
+
+export default defineComponent({
   name: 'FinaliseTx',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
   },
-  data() {
+  data(): Data {
     return {
       finalisedTx: { rawtx: '', hex: '' },
       finalisedTxList: [],
@@ -106,17 +112,17 @@ export default {
   methods: {
     copyToClipboard,
     truncateHex,
-    finalise() {
+    finalise(): void {
       try {
         this.finalisedTx.hex = '';
         this.finalisedTxList = [];
         const network = getNetwork(this.chain, this.isTestnet);
         const txhex = this.finalisedTx.rawtx.trim();
-        let txs = [txhex];
+        let txs: string[] = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
-        const finalizedTxs = [];
+        const finalizedTxs: string[] = [];
         for (let t = 0; t < txs.length; t += 1) {
           console.log('Finalizing tx:', t + 1, '/', txs.length);
           const txb = bitgo.TransactionBuilder.fromTransaction(bitgo.Transaction.fromHex(txs[t], network), network);
@@ -127,9 +133,9 @@ export default {
         console.log('All transactions finalized');
       } catch (e) {
         console.log(e);
-        this.finalisedTx.hex = e.message;
+        this.finalisedTx.hex = e instanceof Error ? e.message : String(e);
       }
     },
   },
-};
+});
 </script>

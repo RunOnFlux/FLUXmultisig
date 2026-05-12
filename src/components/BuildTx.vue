@@ -52,7 +52,7 @@
               v-model="fillHotWalletWithRewards"
               type="checkbox"
               class="cb"
-              @change="onFillHotWalletWithRewards($event.target.checked)"
+              @change="onFillHotWalletWithRewards(($event.target as HTMLInputElement).checked)"
             >
             <span>Fill hot wallet from collateral rewards</span>
           </label>
@@ -61,7 +61,7 @@
               v-model="fillHotWalletFromDesposit"
               type="checkbox"
               class="cb"
-              @change="onFillHotWalletFromDeposit($event.target.checked)"
+              @change="onFillHotWalletFromDeposit(($event.target as HTMLInputElement).checked)"
             >
             <span>Fill hot wallet from deposit address</span>
           </label>
@@ -70,7 +70,7 @@
               v-model="createCollateralTx"
               type="checkbox"
               class="cb"
-              @change="onCreateCollateralTx($event.target.checked)"
+              @change="onCreateCollateralTx(($event.target as HTMLInputElement).checked)"
             >
             <span>Create Titan collateral transaction</span>
           </label>
@@ -79,7 +79,7 @@
               v-model="consolidateRewards"
               type="checkbox"
               class="cb"
-              @change="onConsolidateRewards($event.target.checked)"
+              @change="onConsolidateRewards(($event.target as HTMLInputElement).checked)"
             >
             <span>Consolidate Titan collateral rewards</span>
           </label>
@@ -176,7 +176,7 @@
               v-model="multipleTxes"
               type="checkbox"
               class="cb"
-              @change="onGenerateMultiTxes($event.target.checked)"
+              @change="onGenerateMultiTxes(($event.target as HTMLInputElement).checked)"
             >
             <span>Generate multiple transactions <em>(can't combine with select all)</em></span>
           </label>
@@ -284,14 +284,18 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, inject, type PropType } from 'vue';
 import axios from 'axios';
 import {
   bitgo,
   getNetwork,
   utxoEndpoint,
   normalizeUtxo,
+  type Chain,
+  type Utxo,
 } from '../composables/network';
+import type { CoinControlState } from './CoinControl.vue';
 import {
   setValue, saveToStorage,
 } from '../composables/utxoCache';
@@ -300,14 +304,50 @@ import { truncateHex, updateTitanNodeMessage, isValidAddress } from '../utils';
 
 const FLUX_COLLATERAL_AMOUNTS = new Set([4000000000000, 1250000000000, 100000000000]);
 
-export default {
+interface UnsignedTx {
+  myAddress: string;
+  receiver: string;
+  amount: number | string;
+  fee: number | string;
+  message: string;
+  hex: string;
+}
+
+interface Recipient { address: string; satoshis: number }
+
+interface HistoryUtxo { txid: string; vout: number; scriptPubKey: string; satoshis: number }
+
+interface Data {
+  unsignedTx: UnsignedTx;
+  unsignedTxList: UnsignedTx[];
+  txinfoList: string[];
+  buildError: string;
+  isAdvanced: boolean;
+  avoidFluxNodeAmounts: boolean;
+  enableMaxUtxoSize: boolean;
+  maxUtxoSize: string;
+  sendAllFlux: boolean;
+  multipleTxes: boolean;
+  nTxLoopCount: number;
+  createCollateralTx: boolean;
+  fillHotWalletFromDesposit: boolean;
+  fillHotWalletWithRewards: boolean;
+  consolidateRewards: boolean;
+  loading: boolean;
+}
+
+export default defineComponent({
   name: 'BuildTx',
-  inject: ['coinControl'],
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
   },
-  data() {
+  setup() {
+    const coinControl = inject<CoinControlState>('coinControl');
+    if (!coinControl) throw new Error('coinControl injection missing');
+    return { coinControl };
+  },
+  data(): Data {
     return {
       unsignedTx: {
         myAddress: '', receiver: '', amount: 0, fee: 0, message: '', hex: '',
@@ -330,22 +370,22 @@ export default {
     };
   },
   computed: {
-    addressErrorLabel() {
+    addressErrorLabel(): string {
       return `Invalid ${this.chain} ${this.isTestnet ? 'testnet ' : ''}address`;
     },
-    myAddressError() {
+    myAddressError(): string {
       const a = this.unsignedTx.myAddress;
       if (!a) return '';
       return isValidAddress(a, this.chain, this.isTestnet) ? '' : this.addressErrorLabel;
     },
-    receiverAddressError() {
+    receiverAddressError(): string {
       const a = this.unsignedTx.receiver;
       if (!a) return '';
       return isValidAddress(a, this.chain, this.isTestnet) ? '' : this.addressErrorLabel;
     },
   },
   watch: {
-    chain(val) {
+    chain(val: string): void {
       if (val === 'bitcoin') {
         if (!this.unsignedTx.fee || Number(this.unsignedTx.fee) === 0) {
           this.unsignedTx.fee = 0.00001;
@@ -358,11 +398,11 @@ export default {
   methods: {
     copyToClipboard,
     truncateHex,
-    toggleAdvanced() {
+    toggleAdvanced(): void {
       this.isAdvanced = !this.isAdvanced;
       this.avoidFluxNodeAmounts = this.isAdvanced;
     },
-    onCreateCollateralTx(cb) {
+    onCreateCollateralTx(cb: boolean): void {
       if (cb) {
         this.avoidFluxNodeAmounts = false;
         this.fillHotWalletFromDesposit = false;
@@ -378,10 +418,10 @@ export default {
         this.unsignedTx.amount = 0;
       }
     },
-    onGenerateMultiTxes(cb) {
+    onGenerateMultiTxes(cb: boolean): void {
       if (cb) this.sendAllFlux = false;
     },
-    onFillHotWalletFromDeposit(cb) {
+    onFillHotWalletFromDeposit(cb: boolean): void {
       if (cb) {
         this.avoidFluxNodeAmounts = false;
         this.createCollateralTx = false;
@@ -396,7 +436,7 @@ export default {
         this.unsignedTx.amount = 0;
       }
     },
-    onFillHotWalletWithRewards(cb) {
+    onFillHotWalletWithRewards(cb: boolean): void {
       if (cb) {
         this.avoidFluxNodeAmounts = true;
         this.createCollateralTx = false;
@@ -411,7 +451,7 @@ export default {
         this.unsignedTx.amount = 0;
       }
     },
-    onConsolidateRewards(cb) {
+    onConsolidateRewards(cb: boolean): void {
       if (cb) {
         this.avoidFluxNodeAmounts = true;
         this.createCollateralTx = false;
@@ -429,7 +469,7 @@ export default {
         this.unsignedTx.amount = 0;
       }
     },
-    async build() {
+    async build(): Promise<void> {
       this.loading = true;
       try {
         this.buildError = '';
@@ -437,21 +477,22 @@ export default {
         this.txinfoList = [];
         const network = getNetwork(this.chain, this.isTestnet);
         const utx = await axios.get(utxoEndpoint(this.chain, this.isTestnet, this.unsignedTx.myAddress));
-        const utxos = utx.data.map((x) => normalizeUtxo(this.chain, x));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const utxos: Utxo[] = utx.data.map((x: any) => normalizeUtxo(this.chain, x));
 
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount.toString().replace(',', '.')) * 1e8);
         const satoshisfeesToSend = Math.round(Number(this.unsignedTx.fee.toString().replace(',', '.')) * 1e8);
         const maxUtxoStr = (this.maxUtxoSize || '').toString().replace(',', '.').trim();
         const maxUtxoSatoshis = (this.enableMaxUtxoSize && maxUtxoStr) ? Math.round(Number(maxUtxoStr) * 1e8) : 0;
 
-        const selectedCoins = new Set();
-        const usedUtxos = new Set();
+        const selectedCoins = new Set<string>();
+        const usedUtxos = new Set<string>();
 
         for (let loop = 0; loop < this.nTxLoopCount; loop += 1) {
           console.log('TX Loop:', loop);
-          let history = [];
+          let history: HistoryUtxo[] = [];
           let satoshisSoFar = 0;
-          let recipients = [{
+          let recipients: Recipient[] = [{
             address: this.unsignedTx.receiver,
             satoshis: satoshisToSend,
           }];
@@ -562,18 +603,18 @@ export default {
           }
           this.txinfoList.push(txinfo);
           this.unsignedTx.hex = tx.toHex();
-          this.unsignedTxList.push(this.unsignedTx);
+          this.unsignedTxList.push({ ...this.unsignedTx });
           if (this.sendAllFlux || !this.multipleTxes) break;
         }
         console.log('All transactions built');
         saveToStorage();
       } catch (e) {
         console.log(e);
-        this.buildError = e.message;
+        this.buildError = e instanceof Error ? e.message : String(e);
       } finally {
         this.loading = false;
       }
     },
   },
-};
+});
 </script>

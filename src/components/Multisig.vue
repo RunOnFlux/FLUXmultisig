@@ -72,19 +72,29 @@
   </section>
 </template>
 
-<script>
-import { bitgo, getNetwork } from '../composables/network';
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
+import { bitgo, getNetwork, type Chain } from '../composables/network';
 import { copyToClipboard } from '../composables/copyToast';
 
 const STORAGE_KEY = 'fluxmultisig:multisigSetup';
 
-export default {
+interface MultisigState { address: string; redeemScript: string }
+
+interface Data {
+  publickeys: string[];
+  inputs: number;
+  reqsig: number | string;
+  multisig: MultisigState;
+}
+
+export default defineComponent({
   name: 'MultisigSection',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
   },
-  data() {
+  data(): Data {
     return {
       publickeys: [],
       inputs: 1,
@@ -147,10 +157,11 @@ export default {
         }
       } catch (e) {
         console.log(e);
-        this.multisig.address = e.message;
-        this.multisig.redeemScript = e.message;
+        const msg = e instanceof Error ? e.message : String(e);
+        this.multisig.address = msg;
+        this.multisig.redeemScript = msg;
       }
     },
   },
-};
+});
 </script>

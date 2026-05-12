@@ -41,37 +41,41 @@
   </section>
 </template>
 
-<script>
-import { bitgo, getNetwork } from '../composables/network';
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
+import { bitgo, getNetwork, type Chain } from '../composables/network';
 import { isValidHex } from '../utils';
 
-export default {
+interface DecodeOutput { amount: string; address: string }
+
+export default defineComponent({
   name: 'DecodeTx',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
   },
-  data() {
+  data(): { decodeRawHex: string; decodedInfoString: string } {
     return {
       decodeRawHex: '',
       decodedInfoString: '',
     };
   },
   computed: {
-    hexError() {
+    hexError(): string {
       const raw = (this.decodeRawHex || '').trim();
       if (!raw) return '';
       return isValidHex(raw) ? '' : 'Invalid hex';
     },
   },
   methods: {
-    decode() {
+    decode(): void {
       try {
         this.decodedInfoString = '';
         const network = getNetwork(this.chain, this.isTestnet);
         const tx = bitgo.Transaction.fromHex(this.decodeRawHex, network);
-        const outputs = [];
-        tx.outs.forEach((out) => {
+        const outputs: DecodeOutput[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tx.outs.forEach((out: any) => {
           // OP_RETURN outputs have no recipient address
           if (out.script[0] === 0x6a) return;
           try {
@@ -91,9 +95,9 @@ export default {
         this.decodedInfoString = str;
       } catch (e) {
         console.log(e);
-        this.decodedInfoString = e.message;
+        this.decodedInfoString = e instanceof Error ? e.message : String(e);
       }
     },
   },
-};
+});
 </script>

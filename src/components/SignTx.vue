@@ -122,11 +122,13 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
 import axios from 'axios';
 import {
   bitgo,
   getNetwork,
+  type Chain,
   MAINNET_FLUX_EXPLORER,
   TESTNET_FLUX_EXPLORER,
   MAINNET_BTC_BLOCKBOOK,
@@ -139,19 +141,22 @@ import {
 import { copyToClipboard } from '../composables/copyToast';
 import { truncateHex, isValidHex } from '../utils';
 
-function reverseHex(hex) {
+function reverseHex(hex: string): string {
   return Buffer.from(hex, 'hex').reverse().toString('hex');
 }
 
-export default {
+interface SignState { rawtx: string; privatekey: string; redeemScript: string; hex: string }
+interface Data { signedTx: SignState; signedTxList: string[]; loading: boolean }
+
+export default defineComponent({
   name: 'SignTx',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
     showPrivateKey: { type: Boolean, required: true },
   },
   emits: ['toggle-show-private-key'],
-  data() {
+  data(): Data {
     return {
       signedTx: {
         rawtx: '', privatekey: '', redeemScript: '', hex: '',
@@ -161,7 +166,7 @@ export default {
     };
   },
   computed: {
-    hexError() {
+    hexError(): string {
       const raw = (this.signedTx.rawtx || '').trim();
       if (!raw) return '';
       if (raw.startsWith('[')) {
@@ -180,13 +185,13 @@ export default {
   methods: {
     copyToClipboard,
     truncateHex,
-    fluxExplorer() {
+    fluxExplorer(): string {
       return this.isTestnet ? TESTNET_FLUX_EXPLORER : MAINNET_FLUX_EXPLORER;
     },
-    btcBlockbook() {
+    btcBlockbook(): string {
       return this.isTestnet ? TESTNET_BTC_BLOCKBOOK : MAINNET_BTC_BLOCKBOOK;
     },
-    async sign() {
+    async sign(): Promise<void> {
       this.loading = true;
       try {
         this.signedTx.hex = '';
@@ -194,11 +199,11 @@ export default {
         const network = getNetwork(this.chain, this.isTestnet);
         const hashType = bitgo.Transaction.SIGHASH_ALL;
         const txhex = this.signedTx.rawtx.trim();
-        let txs = [txhex];
+        let txs: string[] = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
-        const signedTxs = [];
+        const signedTxs: string[] = [];
         for (let t = 0; t < txs.length; t += 1) {
           console.log('Signing tx:', t + 1, '/', txs.length);
           const keyPair = bitgo.ECPair.fromWIF(this.signedTx.privatekey, network);
@@ -225,13 +230,16 @@ export default {
                 // eslint-disable-next-line prefer-destructuring
                 addr = tx.data.vout[index].scriptPubKey.addresses[0];
               }
-              let utxos = [];
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              let utxos: { txid: string; vout: number; satoshis: number }[] = [];
               if (this.chain === 'flux') {
                 const utx = await axios.get(`${this.fluxExplorer()}/api/addr/${addr}/utxo`);
-                utxos = utx.data.map((x) => normalizeUtxo('flux', x));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                utxos = utx.data.map((x: any) => normalizeUtxo('flux', x));
               } else {
                 const utx = await axios.get(`${this.btcBlockbook()}/api/v2/utxo/${addr}`);
-                utxos = utx.data.map((x) => normalizeUtxo('bitcoin', x));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                utxos = utx.data.map((x: any) => normalizeUtxo('bitcoin', x));
               }
               /* eslint-disable no-loop-func */
               utxos.forEach((u) => { setValue(u.txid + u.vout, u.satoshis); });
@@ -266,11 +274,11 @@ export default {
         saveToStorage();
       } catch (e) {
         console.log(e);
-        this.signedTx.hex = e.message;
+        this.signedTx.hex = e instanceof Error ? e.message : String(e);
       } finally {
         this.loading = false;
       }
     },
   },
-};
+});
 </script>

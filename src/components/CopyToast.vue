@@ -12,13 +12,14 @@
   </transition>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent } from 'vue';
 import { toastState } from '../composables/copyToast';
 
-export default {
+export default defineComponent({
   name: 'CopyToast',
   data() {
     return { toastState };
   },
-};
+});
 </script>
