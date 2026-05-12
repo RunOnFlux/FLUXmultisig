@@ -279,16 +279,40 @@
                 </tbody>
               </table>
             </div>
-            <div class="pag">
+            <div
+              v-if="coincontrol.numpages > 1"
+              class="pag"
+            >
               <button
-                v-for="(i) in coincontrol.numpages"
-                :key="i"
-                class="pag__num"
-                :class="{ 'pag__num--active': i == coincontrol.currentPage }"
-                @click="change_page(i)"
+                class="pag__num pag__nav"
+                :disabled="coincontrol.currentPage === 1"
+                aria-label="Previous page"
+                @click="change_page(coincontrol.currentPage - 1)"
               >
-                {{ i }}
+                ‹
               </button>
+              <button
+                v-for="(item, idx) in pagItems"
+                :key="idx"
+                class="pag__num"
+                :class="{
+                  'pag__num--active': item === coincontrol.currentPage,
+                  'pag__num--gap': item === '…',
+                }"
+                :disabled="item === '…'"
+                @click="typeof item === 'number' && change_page(item)"
+              >
+                {{ item }}
+              </button>
+              <button
+                class="pag__num pag__nav"
+                :disabled="coincontrol.currentPage === coincontrol.numpages"
+                aria-label="Next page"
+                @click="change_page(coincontrol.currentPage + 1)"
+              >
+                ›
+              </button>
+              <span class="pag__count">{{ coincontrol.currentPage }} / {{ coincontrol.numpages }}</span>
             </div>
           </div>
         </div>
@@ -983,6 +1007,26 @@ export default {
       bitcoinBlockbook: 'https://blockbookbitcoin.app.runonflux.io',
       testnetBitcoinBlockbook: 'https://blockbookbitcointestnet.app.runonflux.io',
     };
+  },
+  computed: {
+    pagItems() {
+      const total = this.coincontrol.numpages;
+      const current = this.coincontrol.currentPage;
+      if (!total || total < 1) return [];
+      if (total <= 7) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+      }
+      const items = [];
+      const range = 1;
+      const left = Math.max(2, current - range);
+      const right = Math.min(total - 1, current + range);
+      items.push(1);
+      if (left > 2) items.push('…');
+      for (let i = left; i <= right; i += 1) items.push(i);
+      if (right < total - 1) items.push('…');
+      items.push(total);
+      return items;
+    },
   },
   watch: {
     publickeys: {
@@ -2611,8 +2655,9 @@ html, body {
 .pag {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 12px 0;
+  align-items: center;
+  gap: 4px;
+  margin: 14px 0;
 }
 
 .pag__num {
@@ -2627,14 +2672,56 @@ html, body {
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
   min-width: 32px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.pag__num:hover { border-color: var(--text-faint); color: var(--text); }
+.pag__num:hover:not(:disabled):not(.pag__num--gap) {
+  border-color: var(--text-faint);
+  color: var(--text);
+}
+
+.pag__num:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 .pag__num--active {
   border-color: var(--accent);
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.pag__num--gap {
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+  padding: 6px 4px;
+  min-width: 20px;
+}
+
+.pag__num--gap:disabled {
+  opacity: 0.7;
+}
+
+.pag__nav {
+  font-size: 16px;
+  line-height: 1;
+  padding: 6px 12px;
+  color: var(--text);
+}
+
+.pag__count {
+  margin-left: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
 }
 
 /* info list */
