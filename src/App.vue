@@ -147,7 +147,7 @@
           v-model="avoidFluxNodeAmounts"
           aria-labelledby="avoindFluxNodeAmounts"
           type="checkbox"
-          :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx"
+          :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx || consolidateRewards"
         >Avoid Flux Node Collateral Amounts</label>
         <br>
         <label><input
@@ -155,7 +155,7 @@
           v-model="sendAllFlux"
           aria-labelledby="sendAll"
           type="checkbox"
-          :disabled="multipleTxes || createCollateralTx"
+          :disabled="multipleTxes || createCollateralTx || consolidateRewards"
         >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
         <br>
         <label><input
@@ -181,6 +181,25 @@
           type="checkbox"
           @change="createCollateralTxCheckboxClicked($event.target.checked);"
         >Create Titan Collateral Transaction</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="consolidateRewards"
+          aria-labelledby="consolidateRewards"
+          type="checkbox"
+          @change="consolidateRewardsCheckboxClicked($event.target.checked);"
+        >Consolidate Titan Collateral Rewards</label>
+        <br>
+        <label><input
+          id="checkbox"
+          v-model="enableMaxUtxoSize"
+          aria-labelledby="enableMaxUtxoSize"
+          type="checkbox"
+        >Limit Max UTXO Amount (skip UTXOs larger than this amount):</label>
+        <input
+          v-model="maxUtxoSize"
+          :disabled="!enableMaxUtxoSize"
+        >
       </div>
 
       <div
@@ -193,13 +212,13 @@
       My Address: <input
         v-model="unsignedTx.myAddress"
         class="pubkey"
-        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards || consolidateRewards"
       >
       <br>
       Receiver Address: <input
         v-model="unsignedTx.receiver"
         class="pubkey"
-        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards || consolidateRewards"
       >
       <br>
       Amount to Send: <input
@@ -420,6 +439,8 @@ export default {
         selectedValueAmount: 0,
       },
       avoidFluxNodeAmounts: false,
+      enableMaxUtxoSize: false,
+      maxUtxoSize: '',
       sendAllFlux: false,
       isTestnet: false,
       chain: 'flux',
@@ -428,6 +449,7 @@ export default {
       createCollateralTx: false,
       fillHotWalletFromDesposit: false,
       fillHotWalletWithRewards: false,
+      consolidateRewards: false,
       decodeRawHex: '',
       decodedInfo: {
         inputs: {
@@ -525,6 +547,7 @@ export default {
         this.avoidFluxNodeAmounts = false;
         this.fillHotWalletFromDesposit = false;
         this.fillHotWalletWithRewards = false;
+        this.consolidateRewards = false;
         this.sendAllFlux = false;
         this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
         this.unsignedTx.receiver = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
@@ -545,6 +568,7 @@ export default {
         this.avoidFluxNodeAmounts = false;
         this.createCollateralTx = false;
         this.fillHotWalletWithRewards = false;
+        this.consolidateRewards = false;
         this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
         this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
         this.unsignedTx.amount = 0;
@@ -559,9 +583,28 @@ export default {
         this.avoidFluxNodeAmounts = true;
         this.createCollateralTx = false;
         this.fillHotWalletFromDesposit = false;
+        this.consolidateRewards = false;
         this.unsignedTx.myAddress = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
         this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
         this.unsignedTx.amount = 0;
+      } else {
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
+        this.unsignedTx.amount = 0;
+      }
+    },
+    consolidateRewardsCheckboxClicked(cb) {
+      if (cb) {
+        this.avoidFluxNodeAmounts = true;
+        this.createCollateralTx = false;
+        this.fillHotWalletFromDesposit = false;
+        this.fillHotWalletWithRewards = false;
+        this.sendAllFlux = false;
+        this.enableMaxUtxoSize = true;
+        this.maxUtxoSize = '50';
+        this.unsignedTx.myAddress = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.receiver = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.amount = 2000;
       } else {
         this.unsignedTx.myAddress = '';
         this.unsignedTx.receiver = '';
@@ -645,6 +688,8 @@ export default {
         let history = [];
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount.toString().replace(',', '.')) * 1e8);
         const satoshisfeesToSend = Math.round(Number(this.unsignedTx.fee.toString().replace(',', '.')) * 1e8);
+        const maxUtxoStr = (this.maxUtxoSize || '').toString().replace(',', '.').trim();
+        const maxUtxoSatoshis = (this.enableMaxUtxoSize && maxUtxoStr) ? Math.round(Number(maxUtxoStr) * 1e8) : 0;
         let recipients = [{
           address: this.unsignedTx.receiver,
           satoshis: satoshisToSend,
@@ -697,6 +742,11 @@ export default {
           for (let i = 0; i < utxos.length; i += 1) {
             if (utxos[i].confirmations > 0) {
               if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+
+              if (maxUtxoSatoshis > 0 && +utxos[i].satoshis > maxUtxoSatoshis) {
                 // eslint-disable-next-line no-continue
                 continue;
               }
