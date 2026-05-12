@@ -3,10 +3,13 @@
   "version": "1.4.0",
   "description": "FLUX multisig is a tool for easy operations with multisignature addresses",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "dev": "vite",
+    "serve": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint --ext .js,.vue src"
   },
   "repository": {
     "type": "git",
@@ -25,21 +28,16 @@
   "dependencies": {
     "axios": "^1.7.7",
     "bitgo-utxo-lib": "github:zelcore-io/bitgo-utxo-lib#ff29c336f56f50b91564bd907141cb687f1d8736",
-    "core-js": "^3.38.1",
-    "vue": "^2.7.16"
+    "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@babel/eslint-parser": "^7.25.1",
-    "@vue/cli-plugin-babel": "^5.0.8",
-    "@vue/cli-plugin-eslint": "^5.0.8",
-    "@vue/cli-service": "^5.0.8",
+    "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^8.57.0",
     "eslint-config-airbnb-base": "~15.0.0",
     "eslint-plugin-import": "~2.31.0",
-    "eslint-plugin-vue": "^9.28.0",
-    "node-polyfill-webpack-plugin": "^4.0.0",
-    "process": "^0.11.10",
-    "vue-template-compiler": "^2.7.16"
+    "eslint-plugin-vue": "^9.32.0",
+    "vite": "^5.4.11",
+    "vite-plugin-node-polyfills": "^0.22.0"
   },
   "browserslist": [
     "> 1%",
