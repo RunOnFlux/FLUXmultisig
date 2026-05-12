@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Application + dev dependencies (npm/yarn)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      # Bundle minor + patch bumps so we don't get 30 PRs/week.
+      # Majors still get individual PRs since they often need code changes.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # The actions/* versions used in .github/workflows/*.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
