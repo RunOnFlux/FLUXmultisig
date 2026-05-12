@@ -9,6 +9,24 @@
       aria-hidden="true"
     />
 
+    <div
+      v-if="isTestnet"
+      class="testnet-stripe"
+      aria-hidden="true"
+    />
+
+    <transition name="toast">
+      <div
+        v-if="copyToast"
+        class="copy-toast"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="copy-toast__check">✓</span>
+        Copied to clipboard
+      </div>
+    </transition>
+
     <header class="topbar">
       <div class="topbar__inner">
         <div class="topbar__brand">
@@ -947,6 +965,7 @@ export default {
       decodedInfoString: '',
       showPrivateKey: false,
       theme: 'dark',
+      copyToast: false,
       loading: {
         fetchUtxos: false,
         build: false,
@@ -1078,6 +1097,9 @@ export default {
     async copyToClipboard(text) {
       try {
         await navigator.clipboard.writeText(text);
+        this.copyToast = true;
+        clearTimeout(this.copyToastTimer);
+        this.copyToastTimer = setTimeout(() => { this.copyToast = false; }, 1400);
       } catch (e) {
         console.log('Copy failed:', e);
       }
@@ -1859,6 +1881,65 @@ html, body {
 .app--light .grain {
   opacity: 0.04;
   mix-blend-mode: multiply;
+}
+
+/* testnet warning stripe */
+.testnet-stripe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 60;
+  pointer-events: none;
+  background: var(--warn);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--warn) 60%, transparent);
+  animation: stripe-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes stripe-in {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+/* copy toast */
+.copy-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--bg-elev);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.copy-toast__check {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.2s, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-enter,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 /* topbar */
