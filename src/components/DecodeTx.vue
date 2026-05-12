@@ -79,7 +79,7 @@ export default {
               amount: Number(out.value * 1e-8).toFixed(8),
               address: bitgo.address.fromOutputScript(out.script, network),
             });
-          } catch (e) {
+          } catch (_e) {
             // Unknown script type; skip
           }
         });

@@ -2,12 +2,16 @@
 // without spinning up the component (which would drag in bitgo-utxo-lib +
 // crypto polyfills via App.vue's other imports).
 
-export function truncateHex(hex, prefix = 25, suffix = 25) {
+export function truncateHex(
+  hex: string | null | undefined,
+  prefix = 25,
+  suffix = 25,
+): string | null | undefined {
   if (!hex || hex.length <= prefix + suffix + 1) return hex;
   return `${hex.slice(0, prefix)}…${hex.slice(-suffix)}`;
 }
 
-export function updateTitanNodeMessage(message) {
+export function updateTitanNodeMessage(message: string | null | undefined): string {
   // Match the integer following "Titan Node" and increment it.
   // Anchoring on the literal label avoids collisions with other digits in
   // the message. Non-Titan messages are dropped on subsequent txs because
@@ -21,9 +25,14 @@ export function updateTitanNodeMessage(message) {
   );
 }
 
-// Pure variant of App's getNetwork — takes the bitgotx.networks object so the
-// function itself stays unit-testable without importing bitgo-utxo-lib.
-export function resolveNetwork(networks, chain, isTestnet) {
+// Pure variant of App's getNetwork. Generic over T so callers get the value
+// type they passed in for the networks map (in production: bitgotx's
+// `Network` objects; in tests: simple string sentinels).
+export function resolveNetwork<T>(
+  networks: { bitcoin: T; testnet: T; zelcash: T; fluxtestnet: T },
+  chain: string,
+  isTestnet: boolean,
+): T {
   if (chain === 'bitcoin' && !isTestnet) return networks.bitcoin;
   if (chain === 'bitcoin' && isTestnet) return networks.testnet;
   if (chain === 'flux' && isTestnet) return networks.fluxtestnet;
@@ -34,7 +43,7 @@ export function resolveNetwork(networks, chain, isTestnet) {
 // typos and bad pastes before they reach bitgo-utxo-lib's typeforce, which
 // otherwise throws cryptic internal errors.
 
-export function isValidHex(s) {
+export function isValidHex(s: unknown): boolean {
   if (typeof s !== 'string') return false;
   const trimmed = s.trim();
   if (trimmed.length === 0) return false;
@@ -42,7 +51,7 @@ export function isValidHex(s) {
   return /^[0-9a-fA-F]+$/.test(trimmed);
 }
 
-export function isValidAddress(addr, chain, isTestnet) {
+export function isValidAddress(addr: unknown, chain: string, isTestnet: boolean): boolean {
   if (typeof addr !== 'string') return false;
   const trimmed = addr.trim();
   if (trimmed.length < 26 || trimmed.length > 90) return false;

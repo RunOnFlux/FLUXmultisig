@@ -170,7 +170,7 @@ export default {
           if (!Array.isArray(arr)) return 'Expected JSON array of hex strings';
           if (!arr.every((s) => isValidHex(s))) return 'Array contains invalid hex';
           return '';
-        } catch (e) {
+        } catch (_e) {
           return 'Invalid JSON array';
         }
       }
