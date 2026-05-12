@@ -23,35 +23,23 @@
   },
   "homepage": "https://github.com/RunOnFlux/FLUXmultisig#readme",
   "dependencies": {
-    "axios": "^0.27.2",
-    "bitgo-utxo-lib": "https://github.com/zelcore-io/bitgo-utxo-lib",
-    "core-js": "^3.24.1",
-    "vue": "^2.7.8"
+    "axios": "^1.7.7",
+    "bitgo-utxo-lib": "github:zelcore-io/bitgo-utxo-lib#ff29c336f56f50b91564bd907141cb687f1d8736",
+    "core-js": "^3.38.1",
+    "vue": "^2.7.16"
   },
   "devDependencies": {
-    "vue-template-compiler": "^2.0.0",
-    "@vue/cli-plugin-babel": "^4.5.15",
-    "@vue/cli-plugin-eslint": "^4.5.15",
-    "@vue/cli-service": "^4.5.15",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^7.32.0",
+    "@babel/eslint-parser": "^7.25.1",
+    "@vue/cli-plugin-babel": "^5.0.8",
+    "@vue/cli-plugin-eslint": "^5.0.8",
+    "@vue/cli-service": "^5.0.8",
+    "eslint": "^8.57.0",
     "eslint-config-airbnb-base": "~15.0.0",
-    "eslint-plugin-import": "~2.26.0",
-    "eslint-plugin-vue": "^9.3.0"
-  },
-  "eslintConfig": {
-    "root": true,
-    "env": {
-      "node": true
-    },
-    "extends": [
-      "plugin:vue/essential",
-      "eslint:recommended"
-    ],
-    "parserOptions": {
-      "parser": "babel-eslint"
-    },
-    "rules": {}
+    "eslint-plugin-import": "~2.31.0",
+    "eslint-plugin-vue": "^9.28.0",
+    "node-polyfill-webpack-plugin": "^4.0.0",
+    "process": "^0.11.10",
+    "vue-template-compiler": "^2.7.16"
   },
   "browserslist": [
     "> 1%",
