@@ -138,7 +138,7 @@
       </p>
       <p />
       <button @click="isTitan = !isTitan; avoidFluxNodeAmounts = isTitan;">
-        {{ isTitan ? 'USING Titan Features.' : '' }} Click to toggle titan features
+        {{ isTitan ? 'USING Advanced Features.' : '' }} Click to toggle advanced features
       </button>
       <br>
       <div :style="{display: isTitan ? 'initial' : 'none'}">
