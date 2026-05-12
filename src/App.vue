@@ -12,8 +12,14 @@
     <div
       v-if="isTestnet"
       class="testnet-stripe"
-      aria-hidden="true"
-    />
+      role="alert"
+    >
+      <span class="testnet-stripe__txt">
+        <span class="testnet-stripe__mark">▲</span>
+        Testnet mode — not real funds
+        <span class="testnet-stripe__mark">▲</span>
+      </span>
+    </div>
 
     <transition name="toast">
       <div
@@ -1889,17 +1895,56 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 28px;
   z-index: 60;
   pointer-events: none;
   background: var(--warn);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--warn) 60%, transparent);
-  animation: stripe-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1916;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 16px color-mix(in srgb, var(--warn) 50%, transparent);
+  animation: stripe-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.testnet-stripe__txt {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.testnet-stripe__mark {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0;
+  animation: stripe-pulse 1.8s ease-in-out infinite;
+}
+
+.testnet-stripe__mark:last-child {
+  animation-delay: 0.9s;
 }
 
 @keyframes stripe-in {
   from { transform: translateY(-100%); }
   to { transform: translateY(0); }
+}
+
+@keyframes stripe-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* shift topbar down when stripe is visible */
+.app--testnet { padding-top: 28px; }
+.app--testnet .topbar { top: 28px; }
+
+@media (max-width: 540px) {
+  .testnet-stripe { font-size: 10px; letter-spacing: 0.14em; }
 }
 
 /* copy toast */
