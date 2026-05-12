@@ -27,43 +27,39 @@ The dev server hot-reloads on edits to `src/App.vue`, `vite.config.js`, etc.
 
 | Branch | Role |
 |---|---|
-| `production` | Source of truth. All feature work targets this branch via PR. |
-| `master` | **Deploy branch.** Contains the compiled `dist/` output, served by GitHub Pages. No source code lives here. |
+| `production` | Source of truth. All feature work targets this branch via PR. Pushing here triggers a Pages deploy via GitHub Actions. |
 | feature branches | Short-lived. Cut from `production`, merged back via PR. |
+| `master` | Historical only. Used to hold compiled `dist/` artifacts before we switched to Pages-from-Actions; can be archived or deleted. |
 
 ## Workflow: updating the app
 
 1. **Branch off `production`**: `git checkout production && git pull && git checkout -b your-feature`
 2. **Edit** `src/App.vue` (and friends). `yarn dev` for live reload.
-3. **Test locally**: `yarn dev`, then `yarn build` to confirm the prod bundle compiles.
+3. **Test locally**: `yarn dev`, then `yarn build` to confirm the prod bundle compiles, then `yarn test` to confirm the unit tests pass.
 4. **PR into `production`**.
-5. Once merged, **update `master`** so the published site reflects the new code (see below).
+5. **Merge**. The Pages deploy runs automatically — no manual master step.
 
-## Workflow: publishing to GitHub Pages
+## Deploy
 
-`master` is a build-artifact-only branch (gh-pages-style). After merging changes
-into `production`, rebuild and swap master's root files with the new `dist/`.
+GitHub Pages is wired via Actions (`.github/workflows/deploy.yml`). Every push
+to `production` triggers a workflow that:
 
-```bash
-# 1. On production with the latest merge pulled
-git checkout production && git pull
-yarn build
+1. checks out the source
+2. runs `yarn install --frozen-lockfile`
+3. runs `yarn build`
+4. uploads `dist/` as a Pages artifact
+5. calls `actions/deploy-pages@v4` to publish it
 
-# 2. Switch to master and clean out the previous build
-git checkout master
-rm -rf assets css js favicon.ico index.html
+**Repo prerequisite:** In **Settings → Pages**, *Build and deployment → Source*
+must be set to **GitHub Actions** (not "Deploy from a branch"). One-time setup.
 
-# 3. Move the new dist contents to the root
-mv dist/* .
-rmdir dist
+The deployed site is at `https://runonflux.github.io/FLUXmultisig/`. The
+`base: '/FLUXmultisig/'` in `vite.config.js` keeps asset paths correct under
+that subpath.
 
-# 4. Commit + push
-git add -A
-git commit -m "rebuild: <short description>"
-git push origin master
-```
+Manual deploy: trigger the workflow from the **Actions** tab via *Run workflow*.
 
-Vite output layout (current):
+Vite output layout (for reference):
 
 ```
 dist/
@@ -72,11 +68,8 @@ dist/
   assets/
     index-HASH.css
     index-HASH.js
+    vendor-bitgo-HASH.js
 ```
-
-The deployed site is at `https://runonflux.github.io/FLUXmultisig/`. The
-`base: '/FLUXmultisig/'` setting in `vite.config.js` ensures asset paths in
-`index.html` resolve correctly under that subpath.
 
 ## Configuration
 
