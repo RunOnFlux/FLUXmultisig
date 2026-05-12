@@ -1313,27 +1313,35 @@ export default {
           const explorer = this.isTestnet ? this.testnetExplorer : this.mainnetExplorer;
           const utx = await axios.get(`${explorer}/api/addr/${this.coincontrol.address}/utxo`);
           const fetchedUtxos = utx.data;
-          const utxos = fetchedUtxos.map((x) => ({
-            txid: x.txid,
-            vout: x.vout,
-            scriptPubKey: x.scriptPubKey,
-            satoshis: Number(x.satoshis),
-            confirmations: x.confirmations,
-            coinbase: x.coinbase || false,
-          }));
+          const utxos = fetchedUtxos.map((x) => {
+            const sats = Number(x.satoshis);
+            return {
+              txid: x.txid,
+              vout: x.vout,
+              scriptPubKey: x.scriptPubKey,
+              satoshis: sats,
+              amount: (sats * 1e-8).toFixed(8),
+              confirmations: x.confirmations,
+              coinbase: x.coinbase || false,
+            };
+          });
           this.coincontrol.utxos = utxos;
         } else {
           const blockbook = this.isTestnet ? this.testnetBitcoinBlockbook : this.bitcoinBlockbook;
           const utx = await axios.get(`${blockbook}/api/v2/utxo/${this.coincontrol.address}`);
           const fetchedUtxos = utx.data;
-          const utxos = fetchedUtxos.map((x) => ({
-            txid: x.txid,
-            vout: x.vout,
-            scriptPubKey: '', // that is fine, not needed
-            satoshis: Number(x.value),
-            confirmations: x.confirmations,
-            coinbase: x.coinbase || false,
-          }));
+          const utxos = fetchedUtxos.map((x) => {
+            const sats = Number(x.value);
+            return {
+              txid: x.txid,
+              vout: x.vout,
+              scriptPubKey: '', // that is fine, not needed
+              satoshis: sats,
+              amount: (sats * 1e-8).toFixed(8),
+              confirmations: x.confirmations,
+              coinbase: x.coinbase || false,
+            };
+          });
           this.coincontrol.utxos = utxos;
         }
         this.num_pages();
