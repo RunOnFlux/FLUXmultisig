@@ -134,7 +134,6 @@
               <td>
                 <input
                   v-model="coincontrol.selected[(coincontrol.currentPage - 1) * 10 + index]"
-                  aria-labelledby="coinControl"
                   type="checkbox"
                   class="checkbox"
                   @change="checkboxClicked($event.target.checked, (coincontrol.currentPage - 1) * 10 + index);"
@@ -176,57 +175,43 @@
       <br>
       <div :style="{display: isTitan ? 'initial' : 'none'}">
         <label><input
-          id="checkbox"
           v-model="avoidFluxNodeAmounts"
-          aria-labelledby="avoindFluxNodeAmounts"
           type="checkbox"
           :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx || consolidateRewards"
         >Avoid Flux Node Collateral Amounts</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="sendAllFlux"
-          aria-labelledby="sendAll"
           type="checkbox"
           :disabled="multipleTxes || createCollateralTx || consolidateRewards"
         >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="fillHotWalletWithRewards"
-          aria-labelledby="fillHotWithRewards"
           type="checkbox"
           @change="fillHotWalletWithRewardsCheckboxClicked($event.target.checked);"
         >Fill Hot Wallet From Collateral Rewards</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="fillHotWalletFromDesposit"
-          aria-labelledby="fillHotWalletFromDesposit"
           type="checkbox"
           @change="fillHotWalletFromDepositCheckboxClicked($event.target.checked);"
         >Fill Hot Wallet From Deposit Address</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="createCollateralTx"
-          aria-labelledby="createCollateralTx"
           type="checkbox"
           @change="createCollateralTxCheckboxClicked($event.target.checked);"
         >Create Titan Collateral Transaction</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="consolidateRewards"
-          aria-labelledby="consolidateRewards"
           type="checkbox"
           @change="consolidateRewardsCheckboxClicked($event.target.checked);"
         >Consolidate Titan Collateral Rewards</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="enableMaxUtxoSize"
-          aria-labelledby="enableMaxUtxoSize"
           type="checkbox"
         >Limit Max UTXO Amount (skip UTXOs larger than this amount):</label>
         <input
@@ -274,9 +259,7 @@
       <div :style="{display: isTitan ? 'initial' : 'none'}">
         <br>
         <label>Generate Multiple Transactions (Can't use with send All):<input
-          id="checkbox"
           v-model="multipleTxes"
-          aria-labelledby="multiTxes"
           type="checkbox"
           @change="generateMultiTxesCheckboxClicked($event.target.checked);"
         ></label>
@@ -347,7 +330,6 @@
       </p>
       Transaction to decode: <textarea
         v-model="decodeRawHex"
-        aria-labelledby="decodeRawHex"
         class="pubkey"
       />
       <br>
@@ -378,13 +360,11 @@
       <br>
       My Multisig address {{ chain === 'flux' ? 'Redeem Script' : 'Witness Script' }} <textarea
         v-model="signedTx.redeemScript"
-        :aria-labelledby="chain === 'flux' ? 'redeemScript' : 'withnessScript'"
         class="pubkey"
       />
       <br>
       Transaction to sign: <textarea
         v-model="signedTx.rawtx"
-        aria-labelledby="transactionToSign"
         class="pubkey"
       />
       <br>
@@ -436,7 +416,6 @@
       </p>
       Transaction to finalise: <textarea
         v-model="finalisedTx.rawtx"
-        aria-labelledby="transactionToFinalise"
         class="pubkey"
       />
       <br>
@@ -485,7 +464,6 @@
       </p>
       Transaction to submit: <textarea
         v-model="submitedTx.rawtx"
-        aria-labelledby="transactionToSubmit"
         class="pubkey"
       />
       <br>
