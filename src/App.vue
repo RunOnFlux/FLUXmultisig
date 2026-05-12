@@ -20,8 +20,20 @@
       </button>
       <br>
       Public Key: {{ keypair.publickey }}
+      <button
+        v-if="keypair.publickey"
+        @click="copyToClipboard(keypair.publickey)"
+      >
+        Copy
+      </button>
       <br>
       Private Key: {{ keypair.privatekey }}
+      <button
+        v-if="keypair.privatekey"
+        @click="copyToClipboard(keypair.privatekey)"
+      >
+        Copy
+      </button>
     </div>
     <hr>
     <h3>
@@ -53,8 +65,20 @@
         </button>
         <br><br>
         Address: {{ multisig.address }}
+        <button
+          v-if="multisig.address"
+          @click="copyToClipboard(multisig.address)"
+        >
+          Copy
+        </button>
         <br>
         Redeem Script: {{ multisig.redeemScript }}
+        <button
+          v-if="multisig.redeemScript"
+          @click="copyToClipboard(multisig.redeemScript)"
+        >
+          Copy
+        </button>
       </div>
     </div>
     <hr>
@@ -265,17 +289,40 @@
       </button>
       <br><br>
       <div
+        v-if="buildError"
+        style="color:red;"
+      >
+        {{ buildError }}
+      </div>
+      <div
         v-for="(item, index) in txinfoList"
-        :key="item.id"
+        :key="index"
       >
         Information {{ index }}: {{ item }}
       </div>
       <br><br>
-      <div
-        v-for="(item, index) in unsignedTxList"
-        :key="item.id"
-      >
-        Raw Transaction {{ index }}: {{ item.hex }}
+      <div v-if="unsignedTxList.length === 1">
+        Raw Transaction: {{ unsignedTxList[0].hex }}
+        <button @click="copyToClipboard(unsignedTxList[0].hex)">
+          Copy
+        </button>
+      </div>
+      <div v-if="unsignedTxList.length > 1">
+        <button @click="copyToClipboard(JSON.stringify(unsignedTxList.map((x) => x.hex)))">
+          Copy all as JSON array
+        </button>
+        <details>
+          <summary>{{ unsignedTxList.length }} transactions (click to expand)</summary>
+          <div
+            v-for="(item, index) in unsignedTxList"
+            :key="index"
+          >
+            Raw Transaction {{ index }}: {{ item.hex }}
+            <button @click="copyToClipboard(item.hex)">
+              Copy
+            </button>
+          </div>
+        </details>
       </div>
     </div>
     <hr>
@@ -330,7 +377,35 @@
         Sign!
       </button>
       <br><br>
-      Raw Transaction: {{ signedTx.hex }}
+      <div
+        v-if="signedTx.hex"
+        style="color:red;"
+      >
+        {{ signedTx.hex }}
+      </div>
+      <div v-if="signedTxList.length === 1">
+        Signed Transaction: {{ signedTxList[0] }}
+        <button @click="copyToClipboard(signedTxList[0])">
+          Copy
+        </button>
+      </div>
+      <div v-if="signedTxList.length > 1">
+        <button @click="copyToClipboard(JSON.stringify(signedTxList))">
+          Copy all as JSON array
+        </button>
+        <details>
+          <summary>{{ signedTxList.length }} signed transactions (click to expand)</summary>
+          <div
+            v-for="(hex, index) in signedTxList"
+            :key="index"
+          >
+            Signed Transaction {{ index }}: {{ hex }}
+            <button @click="copyToClipboard(hex)">
+              Copy
+            </button>
+          </div>
+        </details>
+      </div>
     </div>
     <hr>
     <div>
@@ -351,7 +426,35 @@
         Finalise!
       </button>
       <br><br>
-      Finalised Transaction: {{ finalisedTx.hex }}
+      <div
+        v-if="finalisedTx.hex"
+        style="color:red;"
+      >
+        {{ finalisedTx.hex }}
+      </div>
+      <div v-if="finalisedTxList.length === 1">
+        Finalised Transaction: {{ finalisedTxList[0] }}
+        <button @click="copyToClipboard(finalisedTxList[0])">
+          Copy
+        </button>
+      </div>
+      <div v-if="finalisedTxList.length > 1">
+        <button @click="copyToClipboard(JSON.stringify(finalisedTxList))">
+          Copy all as JSON array
+        </button>
+        <details>
+          <summary>{{ finalisedTxList.length }} finalised transactions (click to expand)</summary>
+          <div
+            v-for="(hex, index) in finalisedTxList"
+            :key="index"
+          >
+            Finalised Transaction {{ index }}: {{ hex }}
+            <button @click="copyToClipboard(hex)">
+              Copy
+            </button>
+          </div>
+        </details>
+      </div>
     </div>
     <hr>
     <div>
@@ -372,7 +475,24 @@
         Submit!
       </button>
       <br><br>
-      Submit Transaction: {{ submitedTx.hex }}
+      <div
+        v-if="submitedTx.hex"
+        style="color:red;"
+      >
+        {{ submitedTx.hex }}
+      </div>
+      <div
+        v-for="(item, index) in submitedTxList"
+        :key="index"
+      >
+        Response{{ submitedTxList.length > 1 ? ` ${index}` : '' }}:
+        <span :style="item.ok ? '' : 'color:red;'">
+          {{ item.status || '' }} {{ item.ok ? 'OK' : 'Failed' }}
+        </span>
+        <button @click="copyToClipboard(typeof item.data === 'string' ? item.data : JSON.stringify(item.data))">
+          Copy
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -411,20 +531,24 @@ export default {
         hex: '',
       },
       unsignedTxList: [],
+      buildError: '',
       signedTx: {
         rawtx: '',
         privatekey: '',
         redeemScript: '',
         hex: '',
       },
+      signedTxList: [],
       finalisedTx: {
         rawtx: '',
         hex: '',
       },
+      finalisedTxList: [],
       submitedTx: {
         rawtx: '',
         hex: '',
       },
+      submitedTxList: [],
       coincontrol: {
         address: '',
         utxos: [],
@@ -465,6 +589,13 @@ export default {
     };
   },
   methods: {
+    async copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        console.log('Copy failed:', e);
+      }
+    },
     getNetwork() {
       let network = bitgotx.networks.zelcash;
       if (this.chain === 'bitcoin' && !this.isTestnet) {
@@ -656,6 +787,9 @@ export default {
     },
     async buildUnsignedRawTx() {
       try {
+        this.buildError = '';
+        this.unsignedTxList = [];
+        this.txinfoList = [];
         const network = this.getNetwork();
         let utxos = [];
         if (this.chain === 'flux') {
@@ -695,9 +829,6 @@ export default {
           satoshis: satoshisToSend,
         }];
         let count = 0;
-
-        this.unsignedTxList = [];
-        this.txinfoList = [];
 
         const selectedCoins = new Set();
         const usedUtxos = new Set();
@@ -804,7 +935,9 @@ export default {
               });
             }
             if (refundSatoshis < 0) {
-              this.unsignedTx.hex = 'Insufficient amount';
+              this.buildError = this.unsignedTxList.length > 0
+                ? `Insufficient amount on tx ${this.unsignedTxList.length} (${this.unsignedTxList.length} tx(s) built so far)`
+                : 'Insufficient amount';
               return;
             }
           }
@@ -860,7 +993,7 @@ export default {
         console.log(JSON.stringify(this.unsignedTxList.map((x) => x.hex)));
       } catch (e) {
         console.log(e);
-        this.unsignedTx.hex = e.message;
+        this.buildError = e.message;
       }
     },
     decodeRawTransaction() {
@@ -899,6 +1032,8 @@ export default {
     },
     async submitTransaction() {
       try {
+        this.submitedTx.hex = '';
+        this.submitedTxList = [];
         const txhex = this.submitedTx.rawtx;
         let txs = [this.submitedTx.rawtx];
         if (txhex.startsWith('[')) {
@@ -948,23 +1083,34 @@ export default {
           return axios(config);
         });
 
-        const responses = await Promise.all(promises);
-        const submittedTxs = responses.map((response) => response.data);
-        if (submittedTxs.length === 1) {
-          console.log(submittedTxs[0]);
-          // eslint-disable-next-line prefer-destructuring
-          this.submitedTx.hex = submittedTxs[0];
-        } else {
-          console.log(JSON.stringify(submittedTxs));
-          this.submitedTx.hex = 'See console for multiple transactions';
-        }
-        console.log('All transactions submitted');
+        const results = await Promise.allSettled(promises);
+        this.submitedTxList = results.map((result) => {
+          if (result.status === 'fulfilled') {
+            // Flux daemon API returns HTTP 200 with `{status: "error"}` on logical failure
+            const body = result.value.data;
+            const fluxStyleError = body && typeof body === 'object' && body.status === 'error';
+            return {
+              ok: !fluxStyleError,
+              status: result.value.status,
+              data: body,
+            };
+          }
+          const err = result.reason;
+          const httpStatus = (err && err.response && err.response.status) || null;
+          const errData = (err && err.response && err.response.data) || (err && err.message) || String(err);
+          return { ok: false, status: httpStatus, data: errData };
+        });
+        const okCount = this.submitedTxList.filter((x) => x.ok).length;
+        console.log(`Submitted ${okCount}/${this.submitedTxList.length} transactions`);
       } catch (e) {
         console.log(e);
+        this.submitedTx.hex = e.message;
       }
     },
     async signTransaction() {
       try {
+        this.signedTx.hex = '';
+        this.signedTxList = [];
         const network = this.getNetwork();
         const hashType = bitgotx.Transaction.SIGHASH_ALL;
         const txhex = this.signedTx.rawtx;
@@ -1067,14 +1213,7 @@ export default {
           const tx = txb.buildIncomplete();
           signedTxs.push(tx.toHex());
         }
-        if (signedTxs.length === 1) {
-          console.log(signedTxs[0]);
-          // eslint-disable-next-line prefer-destructuring
-          this.signedTx.hex = signedTxs[0];
-        } else {
-          console.log(JSON.stringify(signedTxs));
-          this.signedTx.hex = 'See console for multiple transactions';
-        }
+        this.signedTxList = signedTxs;
         console.log('All transactions signed');
       } catch (e) {
         console.log(e);
@@ -1083,6 +1222,8 @@ export default {
     },
     finaliseTransaction() {
       try {
+        this.finalisedTx.hex = '';
+        this.finalisedTxList = [];
         const network = this.getNetwork();
         const txhex = this.finalisedTx.rawtx;
         let txs = [this.finalisedTx.rawtx];
@@ -1097,14 +1238,7 @@ export default {
           const tx = txb.build();
           finalizedTxs.push(tx.toHex());
         }
-        if (finalizedTxs.length === 1) {
-          console.log(finalizedTxs[0]);
-          // eslint-disable-next-line prefer-destructuring
-          this.finalisedTx.hex = finalizedTxs[0];
-        } else {
-          console.log(JSON.stringify(finalizedTxs));
-          this.finalisedTx.hex = 'See console for multiple tx finalization';
-        }
+        this.finalisedTxList = finalizedTxs;
         console.log('All transactions finalized');
       } catch (e) {
         console.log(e);
