@@ -927,8 +927,8 @@
 
 <script>
 
-const bitgotx = require('bitgo-utxo-lib');
-const axios = require('axios');
+import bitgotx from 'bitgo-utxo-lib';
+import axios from 'axios';
 
 let utxosUsedInCurrentTransaction = {};
 
@@ -2065,7 +2065,7 @@ html, body {
   transition: opacity 0.2s, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.toast-enter,
+.toast-enter-from,
 .toast-leave-to {
   opacity: 0;
   transform: translateY(8px);
