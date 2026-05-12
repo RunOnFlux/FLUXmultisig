@@ -242,6 +242,26 @@
             {{ coincontrol.errorMsg }}
           </div>
           <div v-if="coincontrol.show">
+            <div
+              v-if="utxoAmountGroups.length"
+              class="amount-groups"
+            >
+              <div class="amount-groups__head">
+                Duplicate amounts <span class="amount-groups__hint">(groups of 10+)</span>
+              </div>
+              <div class="amount-groups__list">
+                <span
+                  v-for="g in utxoAmountGroups"
+                  :key="g.amount"
+                  class="amount-groups__chip"
+                >
+                  <strong class="amount-groups__count">{{ g.count }}</strong>
+                  <span class="amount-groups__times">×</span>
+                  <span class="amount-groups__amt">{{ g.amount }}</span>
+                  <span class="amount-groups__unit">{{ chain === 'flux' ? 'FLUX' : 'BTC' }}</span>
+                </span>
+              </div>
+            </div>
             <div class="table-wrap">
               <table class="table">
                 <thead>
@@ -1026,6 +1046,18 @@ export default {
       if (right < total - 1) items.push('…');
       items.push(total);
       return items;
+    },
+    utxoAmountGroups() {
+      const utxos = this.coincontrol.utxos || [];
+      const groups = {};
+      utxos.forEach((u) => {
+        const k = u.amount;
+        groups[k] = (groups[k] || 0) + 1;
+      });
+      return Object.entries(groups)
+        .filter(([, count]) => count >= 10)
+        .sort(([, a], [, b]) => b - a)
+        .map(([amount, count]) => ({ amount, count }));
     },
   },
   watch: {
@@ -2657,6 +2689,70 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* amount groups (UTXO summary) */
+.amount-groups {
+  margin: 16px 0;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.amount-groups__head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.amount-groups__hint {
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.amount-groups__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.amount-groups__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-groups__count {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.amount-groups__times {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.amount-groups__amt { color: var(--text); }
+
+.amount-groups__unit {
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 /* pagination */
