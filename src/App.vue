@@ -3,7 +3,7 @@
     <button @click="isTestnet = !isTestnet">
       USING {{ isTestnet ? 'TESTNET' : 'MAINNET' }}. Click to use {{ isTestnet ? 'MAINNET' : 'TESTNET' }}
     </button>
-    <button @click="chain === 'flux' ? chain = 'bitcoin' : (chain = 'flux', unsignedTx.fee = 0)">
+    <button @click="toggleChain">
       USING {{ chain === 'flux' ? 'Flux' : 'Bitcoin' }}. Click to use {{ chain === 'flux' ? 'Bitcoin' : 'Flux' }}
     </button>
     <h1>Welcome to FLUX, BTC multisig Tool</h1>
@@ -20,8 +20,26 @@
       </button>
       <br>
       Public Key: {{ keypair.publickey }}
+      <button
+        v-if="keypair.publickey"
+        @click="copyToClipboard(keypair.publickey)"
+      >
+        Copy
+      </button>
       <br>
-      Private Key: {{ keypair.privatekey }}
+      Private Key: {{ keypair.privatekey ? (showPrivateKey ? keypair.privatekey : '••••••••••••••••••••••') : '' }}
+      <button
+        v-if="keypair.privatekey"
+        @click="showPrivateKey = !showPrivateKey"
+      >
+        {{ showPrivateKey ? 'Hide' : 'Show' }}
+      </button>
+      <button
+        v-if="keypair.privatekey"
+        @click="copyToClipboard(keypair.privatekey)"
+      >
+        Copy
+      </button>
     </div>
     <hr>
     <h3>
@@ -53,8 +71,20 @@
         </button>
         <br><br>
         Address: {{ multisig.address }}
+        <button
+          v-if="multisig.address"
+          @click="copyToClipboard(multisig.address)"
+        >
+          Copy
+        </button>
         <br>
         Redeem Script: {{ multisig.redeemScript }}
+        <button
+          v-if="multisig.redeemScript"
+          @click="copyToClipboard(multisig.redeemScript)"
+        >
+          Copy
+        </button>
       </div>
     </div>
     <hr>
@@ -71,8 +101,11 @@
         class="pubkey"
       >
       <p>
-        <button @click="fetchUtxoSet">
-          View Spendable Transactions
+        <button
+          :disabled="loading.fetchUtxos"
+          @click="fetchUtxoSet"
+        >
+          {{ loading.fetchUtxos ? 'Fetching...' : 'View Spendable Transactions' }}
         </button>
         <br><br>
         {{ coincontrol.errorMsg }}
@@ -101,9 +134,9 @@
               <td>
                 <input
                   v-model="coincontrol.selected[(coincontrol.currentPage - 1) * 10 + index]"
-                  aria-labelledby="coinControl"
                   type="checkbox"
                   class="checkbox"
+                  aria-label="Select UTXO"
                   @change="checkboxClicked($event.target.checked, (coincontrol.currentPage - 1) * 10 + index);"
                 >
               </td>
@@ -138,49 +171,54 @@
       </p>
       <p />
       <button @click="isTitan = !isTitan; avoidFluxNodeAmounts = isTitan;">
-        {{ isTitan ? 'USING Titan Features.' : '' }} Click to toggle titan features
+        {{ isTitan ? 'USING Advanced Features.' : '' }} Click to toggle advanced features
       </button>
       <br>
       <div :style="{display: isTitan ? 'initial' : 'none'}">
         <label><input
-          id="checkbox"
           v-model="avoidFluxNodeAmounts"
-          aria-labelledby="avoindFluxNodeAmounts"
           type="checkbox"
-          :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx"
+          :disabled="fillHotWalletWithRewards || fillHotWalletFromDesposit || createCollateralTx || consolidateRewards"
         >Avoid Flux Node Collateral Amounts</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="sendAllFlux"
-          aria-labelledby="sendAll"
           type="checkbox"
-          :disabled="multipleTxes || createCollateralTx"
+          :disabled="multipleTxes || createCollateralTx || consolidateRewards"
         >Select All Flux (Ignores the Amount - Max 2000 inputs)</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="fillHotWalletWithRewards"
-          aria-labelledby="fillHotWithRewards"
           type="checkbox"
           @change="fillHotWalletWithRewardsCheckboxClicked($event.target.checked);"
         >Fill Hot Wallet From Collateral Rewards</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="fillHotWalletFromDesposit"
-          aria-labelledby="fillHotWalletFromDesposit"
           type="checkbox"
           @change="fillHotWalletFromDepositCheckboxClicked($event.target.checked);"
         >Fill Hot Wallet From Deposit Address</label>
         <br>
         <label><input
-          id="checkbox"
           v-model="createCollateralTx"
-          aria-labelledby="createCollateralTx"
           type="checkbox"
           @change="createCollateralTxCheckboxClicked($event.target.checked);"
         >Create Titan Collateral Transaction</label>
+        <br>
+        <label><input
+          v-model="consolidateRewards"
+          type="checkbox"
+          @change="consolidateRewardsCheckboxClicked($event.target.checked);"
+        >Consolidate Titan Collateral Rewards</label>
+        <br>
+        <label><input
+          v-model="enableMaxUtxoSize"
+          type="checkbox"
+        >Limit Max UTXO Amount (skip UTXOs larger than this amount):</label>
+        <input
+          v-model="maxUtxoSize"
+          :disabled="!enableMaxUtxoSize"
+        >
       </div>
 
       <div
@@ -193,13 +231,13 @@
       My Address: <input
         v-model="unsignedTx.myAddress"
         class="pubkey"
-        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards || consolidateRewards"
       >
       <br>
       Receiver Address: <input
         v-model="unsignedTx.receiver"
         class="pubkey"
-        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards"
+        :disabled="createCollateralTx || fillHotWalletFromDesposit || fillHotWalletWithRewards || consolidateRewards"
       >
       <br>
       Amount to Send: <input
@@ -222,9 +260,7 @@
       <div :style="{display: isTitan ? 'initial' : 'none'}">
         <br>
         <label>Generate Multiple Transactions (Can't use with send All):<input
-          id="checkbox"
           v-model="multipleTxes"
-          aria-labelledby="multiTxes"
           type="checkbox"
           @change="generateMultiTxesCheckboxClicked($event.target.checked);"
         ></label>
@@ -232,7 +268,7 @@
         <br>
         <label> How many transactions to build
           <input
-            v-model="nTxLoopCount"
+            v-model.number="nTxLoopCount"
             type="number"
             min="1"
             max="30"
@@ -241,22 +277,48 @@
       </div>
       <br>
       <br>
-      <button @click="buildUnsignedRawTx">
-        Build!
+      <button
+        :disabled="loading.build"
+        @click="buildUnsignedRawTx"
+      >
+        {{ loading.build ? 'Building...' : 'Build!' }}
       </button>
       <br><br>
       <div
+        v-if="buildError"
+        style="color:red;"
+      >
+        {{ buildError }}
+      </div>
+      <div
         v-for="(item, index) in txinfoList"
-        :key="item.id"
+        :key="index"
       >
         Information {{ index }}: {{ item }}
       </div>
       <br><br>
-      <div
-        v-for="(item, index) in unsignedTxList"
-        :key="item.id"
-      >
-        Raw Transaction {{ index }}: {{ item.hex }}
+      <div v-if="unsignedTxList.length === 1">
+        Raw Transaction: {{ unsignedTxList[0].hex }}
+        <button @click="copyToClipboard(unsignedTxList[0].hex)">
+          Copy
+        </button>
+      </div>
+      <div v-if="unsignedTxList.length > 1">
+        <button @click="copyToClipboard(JSON.stringify(unsignedTxList.map((x) => x.hex)))">
+          Copy all as JSON array
+        </button>
+        <details>
+          <summary>{{ unsignedTxList.length }} transactions (click to expand)</summary>
+          <div
+            v-for="(item, index) in unsignedTxList"
+            :key="index"
+          >
+            Raw Transaction {{ index }}: {{ item.hex }}
+            <button @click="copyToClipboard(item.hex)">
+              Copy
+            </button>
+          </div>
+        </details>
       </div>
     </div>
     <hr>
@@ -269,7 +331,7 @@
       </p>
       Transaction to decode: <textarea
         v-model="decodeRawHex"
-        aria-labelledby="decodeRawHex"
+        aria-label="Transaction to decode"
         class="pubkey"
       />
       <br>
@@ -291,27 +353,62 @@
       </p>
       My Private Key: <input
         v-model="signedTx.privatekey"
+        :type="showPrivateKey ? 'text' : 'password'"
         class="pubkey"
       >
+      <button @click="showPrivateKey = !showPrivateKey">
+        {{ showPrivateKey ? 'Hide' : 'Show' }}
+      </button>
       <br>
       My Multisig address {{ chain === 'flux' ? 'Redeem Script' : 'Witness Script' }} <textarea
         v-model="signedTx.redeemScript"
-        :aria-labelledby="chain === 'flux' ? 'redeemScript' : 'withnessScript'"
+        :aria-label="chain === 'flux' ? 'Redeem Script' : 'Witness Script'"
         class="pubkey"
       />
       <br>
       Transaction to sign: <textarea
         v-model="signedTx.rawtx"
-        aria-labelledby="transactionToSign"
+        aria-label="Transaction to sign"
         class="pubkey"
       />
       <br>
       <br>
-      <button @click="signTransaction">
-        Sign!
+      <button
+        :disabled="loading.sign"
+        @click="signTransaction"
+      >
+        {{ loading.sign ? 'Signing...' : 'Sign!' }}
       </button>
       <br><br>
-      Raw Transaction: {{ signedTx.hex }}
+      <div
+        v-if="signedTx.hex"
+        style="color:red;"
+      >
+        {{ signedTx.hex }}
+      </div>
+      <div v-if="signedTxList.length === 1">
+        Signed Transaction: {{ signedTxList[0] }}
+        <button @click="copyToClipboard(signedTxList[0])">
+          Copy
+        </button>
+      </div>
+      <div v-if="signedTxList.length > 1">
+        <button @click="copyToClipboard(JSON.stringify(signedTxList))">
+          Copy all as JSON array
+        </button>
+        <details>
+          <summary>{{ signedTxList.length }} signed transactions (click to expand)</summary>
+          <div
+            v-for="(hex, index) in signedTxList"
+            :key="index"
+          >
+            Signed Transaction {{ index }}: {{ hex }}
+            <button @click="copyToClipboard(hex)">
+              Copy
+            </button>
+          </div>
+        </details>
+      </div>
     </div>
     <hr>
     <div>
@@ -323,7 +420,7 @@
       </p>
       Transaction to finalise: <textarea
         v-model="finalisedTx.rawtx"
-        aria-labelledby="transactionToFinalise"
+        aria-label="Transaction to finalise"
         class="pubkey"
       />
       <br>
@@ -332,7 +429,35 @@
         Finalise!
       </button>
       <br><br>
-      Finalised Transaction: {{ finalisedTx.hex }}
+      <div
+        v-if="finalisedTx.hex"
+        style="color:red;"
+      >
+        {{ finalisedTx.hex }}
+      </div>
+      <div v-if="finalisedTxList.length === 1">
+        Finalised Transaction: {{ finalisedTxList[0] }}
+        <button @click="copyToClipboard(finalisedTxList[0])">
+          Copy
+        </button>
+      </div>
+      <div v-if="finalisedTxList.length > 1">
+        <button @click="copyToClipboard(JSON.stringify(finalisedTxList))">
+          Copy all as JSON array
+        </button>
+        <details>
+          <summary>{{ finalisedTxList.length }} finalised transactions (click to expand)</summary>
+          <div
+            v-for="(hex, index) in finalisedTxList"
+            :key="index"
+          >
+            Finalised Transaction {{ index }}: {{ hex }}
+            <button @click="copyToClipboard(hex)">
+              Copy
+            </button>
+          </div>
+        </details>
+      </div>
     </div>
     <hr>
     <div>
@@ -344,16 +469,36 @@
       </p>
       Transaction to submit: <textarea
         v-model="submitedTx.rawtx"
-        aria-labelledby="transactionToSubmit"
+        aria-label="Transaction to submit"
         class="pubkey"
       />
       <br>
       <br>
-      <button @click="submitTransaction">
-        Submit!
+      <button
+        :disabled="loading.submit"
+        @click="submitTransaction"
+      >
+        {{ loading.submit ? 'Submitting...' : 'Submit!' }}
       </button>
       <br><br>
-      Submit Transaction: {{ submitedTx.hex }}
+      <div
+        v-if="submitedTx.hex"
+        style="color:red;"
+      >
+        {{ submitedTx.hex }}
+      </div>
+      <div
+        v-for="(item, index) in submitedTxList"
+        :key="index"
+      >
+        Response{{ submitedTxList.length > 1 ? ` ${index}` : '' }}:
+        <span :style="item.ok ? '' : 'color:red;'">
+          {{ item.status || '' }} {{ item.ok ? 'OK' : 'Failed' }}
+        </span>
+        <button @click="copyToClipboard(typeof item.data === 'string' ? item.data : JSON.stringify(item.data))">
+          Copy
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -392,20 +537,24 @@ export default {
         hex: '',
       },
       unsignedTxList: [],
+      buildError: '',
       signedTx: {
         rawtx: '',
         privatekey: '',
         redeemScript: '',
         hex: '',
       },
+      signedTxList: [],
       finalisedTx: {
         rawtx: '',
         hex: '',
       },
+      finalisedTxList: [],
       submitedTx: {
         rawtx: '',
         hex: '',
       },
+      submitedTxList: [],
       coincontrol: {
         address: '',
         utxos: [],
@@ -420,6 +569,8 @@ export default {
         selectedValueAmount: 0,
       },
       avoidFluxNodeAmounts: false,
+      enableMaxUtxoSize: false,
+      maxUtxoSize: '',
       sendAllFlux: false,
       isTestnet: false,
       chain: 'flux',
@@ -428,22 +579,79 @@ export default {
       createCollateralTx: false,
       fillHotWalletFromDesposit: false,
       fillHotWalletWithRewards: false,
+      consolidateRewards: false,
       decodeRawHex: '',
       decodedInfo: {
         inputs: {
-          balanceSpent: 0,
           count: 0,
         },
         outputs: [],
       },
       decodedInfoString: '',
+      showPrivateKey: false,
+      loading: {
+        fetchUtxos: false,
+        build: false,
+        sign: false,
+        submit: false,
+      },
       mainnetExplorer: 'https://explorer.runonflux.io',
       testnetExplorer: 'https://testnet.runonflux.io',
       bitcoinBlockbook: 'https://blockbookbitcoin.app.runonflux.io',
       testnetBitcoinBlockbook: 'https://blockbookbitcointestnet.app.runonflux.io',
     };
   },
+  watch: {
+    publickeys: {
+      handler() { this.saveMultisigSetup(); },
+      deep: true,
+    },
+    inputs() { this.saveMultisigSetup(); },
+    reqsig() { this.saveMultisigSetup(); },
+  },
+  mounted() {
+    try {
+      const saved = localStorage.getItem('fluxmultisig:multisigSetup');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (Array.isArray(data.publickeys)) this.publickeys = data.publickeys;
+        if (Number.isFinite(data.inputs)) this.inputs = data.inputs;
+        if (data.reqsig !== undefined) this.reqsig = data.reqsig;
+      }
+    } catch (e) {
+      console.log('Failed to load multisig setup:', e);
+    }
+  },
   methods: {
+    saveMultisigSetup() {
+      try {
+        localStorage.setItem('fluxmultisig:multisigSetup', JSON.stringify({
+          publickeys: this.publickeys,
+          inputs: this.inputs,
+          reqsig: this.reqsig,
+        }));
+      } catch (e) {
+        console.log('Failed to save multisig setup:', e);
+      }
+    },
+    toggleChain() {
+      if (this.chain === 'flux') {
+        this.chain = 'bitcoin';
+        if (!this.unsignedTx.fee || Number(this.unsignedTx.fee) === 0) {
+          this.unsignedTx.fee = 0.00001;
+        }
+      } else {
+        this.chain = 'flux';
+        this.unsignedTx.fee = 0;
+      }
+    },
+    async copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        console.log('Copy failed:', e);
+      }
+    },
     getNetwork() {
       let network = bitgotx.networks.zelcash;
       if (this.chain === 'bitcoin' && !this.isTestnet) {
@@ -526,6 +734,7 @@ export default {
         this.avoidFluxNodeAmounts = false;
         this.fillHotWalletFromDesposit = false;
         this.fillHotWalletWithRewards = false;
+        this.consolidateRewards = false;
         this.sendAllFlux = false;
         this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
         this.unsignedTx.receiver = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
@@ -546,6 +755,7 @@ export default {
         this.avoidFluxNodeAmounts = false;
         this.createCollateralTx = false;
         this.fillHotWalletWithRewards = false;
+        this.consolidateRewards = false;
         this.unsignedTx.myAddress = 't3a6HnypgaJf5xHMA8PrnfJBR6PpTithbeC';
         this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
         this.unsignedTx.amount = 0;
@@ -560,6 +770,7 @@ export default {
         this.avoidFluxNodeAmounts = true;
         this.createCollateralTx = false;
         this.fillHotWalletFromDesposit = false;
+        this.consolidateRewards = false;
         this.unsignedTx.myAddress = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
         this.unsignedTx.receiver = 't1S9USrJGCkLZgmA1Cv7P1fe5qraz2oqT5e';
         this.unsignedTx.amount = 0;
@@ -569,8 +780,27 @@ export default {
         this.unsignedTx.amount = 0;
       }
     },
+    consolidateRewardsCheckboxClicked(cb) {
+      if (cb) {
+        this.avoidFluxNodeAmounts = true;
+        this.createCollateralTx = false;
+        this.fillHotWalletFromDesposit = false;
+        this.fillHotWalletWithRewards = false;
+        this.sendAllFlux = false;
+        this.enableMaxUtxoSize = true;
+        this.maxUtxoSize = '50';
+        this.unsignedTx.myAddress = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.receiver = 't3c4EfxLoXXSRZCRnPRF3RpjPi9mBzF5yoJ';
+        this.unsignedTx.amount = 2000;
+      } else {
+        this.unsignedTx.myAddress = '';
+        this.unsignedTx.receiver = '';
+        this.unsignedTx.amount = 0;
+      }
+    },
 
     async fetchUtxoSet() {
+      this.loading.fetchUtxos = true;
       try {
         this.coincontrol.selectedValueSats = 0;
         this.coincontrol.selectedValueAmount = 0;
@@ -610,10 +840,16 @@ export default {
       } catch (e) {
         console.log(e);
         this.coincontrol.errorMsg = e.message;
+      } finally {
+        this.loading.fetchUtxos = false;
       }
     },
     async buildUnsignedRawTx() {
+      this.loading.build = true;
       try {
+        this.buildError = '';
+        this.unsignedTxList = [];
+        this.txinfoList = [];
         const network = this.getNetwork();
         let utxos = [];
         if (this.chain === 'flux') {
@@ -646,14 +882,13 @@ export default {
         let history = [];
         const satoshisToSend = Math.round(Number(this.unsignedTx.amount.toString().replace(',', '.')) * 1e8);
         const satoshisfeesToSend = Math.round(Number(this.unsignedTx.fee.toString().replace(',', '.')) * 1e8);
+        const maxUtxoStr = (this.maxUtxoSize || '').toString().replace(',', '.').trim();
+        const maxUtxoSatoshis = (this.enableMaxUtxoSize && maxUtxoStr) ? Math.round(Number(maxUtxoStr) * 1e8) : 0;
         let recipients = [{
           address: this.unsignedTx.receiver,
           satoshis: satoshisToSend,
         }];
         let count = 0;
-
-        this.unsignedTxList = [];
-        this.txinfoList = [];
 
         const selectedCoins = new Set();
         const usedUtxos = new Set();
@@ -696,8 +931,13 @@ export default {
           }
 
           for (let i = 0; i < utxos.length; i += 1) {
-            if (utxos[i].height !== 0) {
+            if (utxos[i].confirmations > 0) {
               if (this.avoidFluxNodeAmounts && (+utxos[i].satoshis === 4000000000000 || +utxos[i].satoshis === 1250000000000 || +utxos[i].satoshis === 100000000000)) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+
+              if (maxUtxoSatoshis > 0 && +utxos[i].satoshis > maxUtxoSatoshis) {
                 // eslint-disable-next-line no-continue
                 continue;
               }
@@ -755,7 +995,9 @@ export default {
               });
             }
             if (refundSatoshis < 0) {
-              this.unsignedTx.hex = 'Insufficient amount';
+              this.buildError = this.unsignedTxList.length > 0
+                ? `Insufficient amount on tx ${this.unsignedTxList.length} (${this.unsignedTxList.length} tx(s) built so far)`
+                : 'Insufficient amount';
               return;
             }
           }
@@ -811,54 +1053,39 @@ export default {
         console.log(JSON.stringify(this.unsignedTxList.map((x) => x.hex)));
       } catch (e) {
         console.log(e);
-        this.unsignedTx.hex = e.message;
+        this.buildError = e.message;
+      } finally {
+        this.loading.build = false;
       }
     },
-    async decodeRawTransaction() {
+    decodeRawTransaction() {
       try {
         this.decodedInfoString = '';
         this.decodedInfo.outputs = [];
-        this.decodedInfo.inputs.balanceSpent = 0;
         this.decodedInfo.inputs.count = 0;
 
-        const data = { hexstring: this.decodeRawHex };
+        const network = this.getNetwork();
+        const tx = bitgotx.Transaction.fromHex(this.decodeRawHex, network);
 
-        const config = {
-          method: 'post',
-          url: 'https://api.runonflux.io/daemon/decoderawtransaction/',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          data,
-        };
+        this.decodedInfo.inputs.count = tx.ins.length;
 
-        const response = await axios(config);
-        const { vin } = response.data.data;
-        const out = response.data.data.vout;
-
-        vin.forEach((input) => {
-          if ('value' in input) {
-            this.decodedInfo.inputs.balanceSpent += input.value || 0;
-          }
-          this.decodedInfo.inputs.count += 1;
-        });
-
-        out.forEach((output) => {
-          const item = {};
-          item.amount = output.value;
-          if ('addresses' in output.scriptPubKey) {
-            // eslint-disable-next-line prefer-destructuring
-            item.address = output.scriptPubKey.addresses[0];
-            this.decodedInfo.outputs.push(item);
+        tx.outs.forEach((out) => {
+          // OP_RETURN outputs have no recipient address
+          if (out.script[0] === 0x6a) return;
+          try {
+            this.decodedInfo.outputs.push({
+              amount: Number(out.value * 1e-8).toFixed(8),
+              address: bitgotx.address.fromOutputScript(out.script, network),
+            });
+          } catch (e) {
+            // Unknown script type; skip
           }
         });
 
+        const unit = this.chain === 'flux' ? 'FLUX' : 'BTC';
         this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.count} input(s).\n`;
-        if (this.decodedInfo.inputs.value) {
-          this.decodedInfoString = `\nSpending ${this.decodedInfo.inputs.value} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} in the input(s).\n`;
-        }
         this.decodedInfo.outputs.forEach((output) => {
-          this.decodedInfoString += `Sending ${output.amount} ${this.chain === 'flux' ? 'FLUX' : 'BTC'} to ${output.address}\n`;
+          this.decodedInfoString += `Sending ${output.amount} ${unit} to ${output.address}\n`;
         });
       } catch (e) {
         console.log(e);
@@ -866,9 +1093,12 @@ export default {
       }
     },
     async submitTransaction() {
+      this.loading.submit = true;
       try {
-        const txhex = this.submitedTx.rawtx;
-        let txs = [this.submitedTx.rawtx];
+        this.submitedTx.hex = '';
+        this.submitedTxList = [];
+        const txhex = this.submitedTx.rawtx.trim();
+        let txs = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
@@ -916,27 +1146,41 @@ export default {
           return axios(config);
         });
 
-        const responses = await Promise.all(promises);
-        const submittedTxs = responses.map((response) => response.data);
-        if (submittedTxs.length === 1) {
-          console.log(submittedTxs[0]);
-          // eslint-disable-next-line prefer-destructuring
-          this.submitedTx.hex = submittedTxs[0];
-        } else {
-          console.log(JSON.stringify(submittedTxs));
-          this.submitedTx.hex = 'See console for multiple transactions';
-        }
-        console.log('All transactions submitted');
+        const results = await Promise.allSettled(promises);
+        this.submitedTxList = results.map((result) => {
+          if (result.status === 'fulfilled') {
+            // Flux daemon API returns HTTP 200 with `{status: "error"}` on logical failure
+            const body = result.value.data;
+            const fluxStyleError = body && typeof body === 'object' && body.status === 'error';
+            return {
+              ok: !fluxStyleError,
+              status: result.value.status,
+              data: body,
+            };
+          }
+          const err = result.reason;
+          const httpStatus = (err && err.response && err.response.status) || null;
+          const errData = (err && err.response && err.response.data) || (err && err.message) || String(err);
+          return { ok: false, status: httpStatus, data: errData };
+        });
+        const okCount = this.submitedTxList.filter((x) => x.ok).length;
+        console.log(`Submitted ${okCount}/${this.submitedTxList.length} transactions`);
       } catch (e) {
         console.log(e);
+        this.submitedTx.hex = e.message;
+      } finally {
+        this.loading.submit = false;
       }
     },
     async signTransaction() {
+      this.loading.sign = true;
       try {
+        this.signedTx.hex = '';
+        this.signedTxList = [];
         const network = this.getNetwork();
         const hashType = bitgotx.Transaction.SIGHASH_ALL;
-        const txhex = this.signedTx.rawtx;
-        let txs = [this.signedTx.rawtx];
+        const txhex = this.signedTx.rawtx.trim();
+        let txs = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
@@ -1035,25 +1279,22 @@ export default {
           const tx = txb.buildIncomplete();
           signedTxs.push(tx.toHex());
         }
-        if (signedTxs.length === 1) {
-          console.log(signedTxs[0]);
-          // eslint-disable-next-line prefer-destructuring
-          this.signedTx.hex = signedTxs[0];
-        } else {
-          console.log(JSON.stringify(signedTxs));
-          this.signedTx.hex = 'See console for multiple transactions';
-        }
+        this.signedTxList = signedTxs;
         console.log('All transactions signed');
       } catch (e) {
         console.log(e);
         this.signedTx.hex = e.message;
+      } finally {
+        this.loading.sign = false;
       }
     },
     finaliseTransaction() {
       try {
+        this.finalisedTx.hex = '';
+        this.finalisedTxList = [];
         const network = this.getNetwork();
-        const txhex = this.finalisedTx.rawtx;
-        let txs = [this.finalisedTx.rawtx];
+        const txhex = this.finalisedTx.rawtx.trim();
+        let txs = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
           // multiple txs
@@ -1065,14 +1306,7 @@ export default {
           const tx = txb.build();
           finalizedTxs.push(tx.toHex());
         }
-        if (finalizedTxs.length === 1) {
-          console.log(finalizedTxs[0]);
-          // eslint-disable-next-line prefer-destructuring
-          this.finalisedTx.hex = finalizedTxs[0];
-        } else {
-          console.log(JSON.stringify(finalizedTxs));
-          this.finalisedTx.hex = 'See console for multiple tx finalization';
-        }
+        this.finalisedTxList = finalizedTxs;
         console.log('All transactions finalized');
       } catch (e) {
         console.log(e);
@@ -1084,17 +1318,15 @@ export default {
       return buf.toString('hex');
     },
     updateTitanNodeMessage(message) {
-      // Example Titan Node 15
-      if (message.includes('Titan Node')) {
-        const text = message;
-        const getPart = text.replace(/[^\d.]/g, ''); // returns '15'
-        const num = parseInt(getPart, 10); // returns 15
-        const newVal = num + 1; // returns 16
-        const reg = new RegExp(num); // create dynamic regexp
-        const newstring = text.replace(reg, newVal); // returns Titan Node 16
-        return newstring;
-      }
-      return '';
+      // Match the integer following "Titan Node" and increment it.
+      // Anchoring on the label avoids collisions with other digits in the message.
+      // Non-Titan messages are dropped on subsequent txs (multi-tx is a Titan-only flow).
+      const match = message.match(/Titan Node (\d+)/);
+      if (!match) return '';
+      return message.replace(
+        /Titan Node \d+/,
+        `Titan Node ${parseInt(match[1], 10) + 1}`,
+      );
     },
   },
 };

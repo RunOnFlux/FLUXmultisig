@@ -1,4 +1,9 @@
 module.exports = {
+  root: true,
+  parserOptions: {
+    parser: '@babel/eslint-parser',
+    requireConfigFile: false,
+  },
   extends: [
     'plugin:vue/recommended',
     'airbnb-base',
