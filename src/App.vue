@@ -929,6 +929,7 @@
 
 import bitgotx from 'bitgo-utxo-lib';
 import axios from 'axios';
+import { truncateHex, updateTitanNodeMessage } from './utils';
 
 let utxosUsedInCurrentTransaction = {};
 
@@ -1176,10 +1177,7 @@ export default {
         console.log('Failed to clear UTXO cache:', e);
       }
     },
-    truncateHex(hex, prefix = 25, suffix = 25) {
-      if (!hex || hex.length <= prefix + suffix + 1) return hex;
-      return `${hex.slice(0, prefix)}…${hex.slice(-suffix)}`;
-    },
+    truncateHex,
     async copyToClipboard(text) {
       try {
         await navigator.clipboard.writeText(text);
@@ -1864,17 +1862,7 @@ export default {
       const buf = Buffer.from(hex, 'hex').reverse();
       return buf.toString('hex');
     },
-    updateTitanNodeMessage(message) {
-      // Match the integer following "Titan Node" and increment it.
-      // Anchoring on the label avoids collisions with other digits in the message.
-      // Non-Titan messages are dropped on subsequent txs (multi-tx is a Titan-only flow).
-      const match = message.match(/Titan Node (\d+)/);
-      if (!match) return '';
-      return message.replace(
-        /Titan Node \d+/,
-        `Titan Node ${parseInt(match[1], 10) + 1}`,
-      );
-    },
+    updateTitanNodeMessage,
   },
 };
 </script>
