@@ -36,6 +36,7 @@
     "eslint-config-airbnb-base": "~15.0.0",
     "eslint-plugin-import": "~2.31.0",
     "eslint-plugin-vue": "^9.32.0",
+    "terser": "^5.47.1",
     "vite": "^5.4.11",
     "vite-plugin-node-polyfills": "^0.22.0"
   },
