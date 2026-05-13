@@ -21,7 +21,7 @@ describe('truncateHex', () => {
 
   it('truncates long strings with default 25/25 split', () => {
     const hex = '0123456789abcdef'.repeat(20); // 320 chars
-    const out = truncateHex(hex);
+    const out = truncateHex(hex) as string;
     expect(out).toBe(`${hex.slice(0, 25)}…${hex.slice(-25)}`);
     expect(out.length).toBe(25 + 1 + 25); // 51 chars including ellipsis
   });

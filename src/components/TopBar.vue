@@ -35,14 +35,17 @@
   </header>
 </template>
 
-<script>
-export default {
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue';
+import type { Chain } from '../composables/network';
+
+export default defineComponent({
   name: 'TopBar',
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
-    theme: { type: String, required: true },
+    theme: { type: String as PropType<'dark' | 'light'>, required: true },
   },
   emits: ['toggle-theme', 'toggle-testnet', 'toggle-chain'],
-};
+});
 </script>

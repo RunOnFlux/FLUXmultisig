@@ -86,7 +86,7 @@
                     type="checkbox"
                     class="cb"
                     aria-label="Select UTXO"
-                    @change="onCheckbox($event.target.checked, (coinControl.currentPage - 1) * 10 + index)"
+                    @change="onCheckbox(($event.target as HTMLInputElement).checked, (coinControl.currentPage - 1) * 10 + index)"
                   >
                 </td>
                 <td>{{ item.confirmations }}</td>
@@ -139,35 +139,56 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, inject, type PropType } from 'vue';
 import axios from 'axios';
 import {
   utxoEndpoint,
   normalizeUtxo,
+  type Chain,
+  type Utxo,
 } from '../composables/network';
 import { isValidAddress } from '../utils';
 
-export default {
+export interface CoinControlState {
+  address: string;
+  utxos: Utxo[];
+  selected: boolean[];
+  errorMsg: string;
+  currentPage: number;
+  getrows: Utxo[];
+  numpages: number;
+  show: boolean;
+  selectedValueSats: number;
+  selectedValueAmount: number | string;
+  loading: boolean;
+}
+
+export default defineComponent({
   name: 'CoinControl',
-  inject: ['coinControl'],
   props: {
-    chain: { type: String, required: true },
+    chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
   },
+  setup() {
+    const coinControl = inject<CoinControlState>('coinControl');
+    if (!coinControl) throw new Error('coinControl injection missing');
+    return { coinControl };
+  },
   computed: {
-    addressError() {
+    addressError(): string {
       const a = this.coinControl.address;
       if (!a) return '';
       return isValidAddress(a, this.chain, this.isTestnet)
         ? ''
         : `Invalid ${this.chain} ${this.isTestnet ? 'testnet ' : ''}address`;
     },
-    pagItems() {
+    pagItems(): (number | '…')[] {
       const total = this.coinControl.numpages;
       const current = this.coinControl.currentPage;
       if (!total || total < 1) return [];
       if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-      const items = [];
+      const items: (number | '…')[] = [];
       const range = 1;
       const left = Math.max(2, current - range);
       const right = Math.min(total - 1, current + range);
@@ -178,9 +199,9 @@ export default {
       items.push(total);
       return items;
     },
-    amountGroups() {
-      const utxos = this.coinControl.utxos || [];
-      const groups = {};
+    amountGroups(): { amount: string; count: number }[] {
+      const utxos: Utxo[] = this.coinControl.utxos || [];
+      const groups: Record<string, number> = {};
       utxos.forEach((u) => {
         groups[u.amount] = (groups[u.amount] || 0) + 1;
       });
@@ -191,7 +212,7 @@ export default {
     },
   },
   methods: {
-    async fetchUtxoSet() {
+    async fetchUtxoSet(): Promise<void> {
       this.coinControl.loading = true;
       try {
         this.coinControl.selectedValueSats = 0;
@@ -200,26 +221,27 @@ export default {
         this.coinControl.currentPage = 1;
         this.coinControl.selected = [];
         const utx = await axios.get(utxoEndpoint(this.chain, this.isTestnet, this.coinControl.address));
-        this.coinControl.utxos = utx.data.map((x) => normalizeUtxo(this.chain, x));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.coinControl.utxos = utx.data.map((x: any) => normalizeUtxo(this.chain, x));
         this.coinControl.numpages = Math.ceil(this.coinControl.utxos.length / 10);
         this.refreshRows();
         this.coinControl.show = true;
       } catch (e) {
         console.log(e);
-        this.coinControl.errorMsg = e.message;
+        this.coinControl.errorMsg = e instanceof Error ? e.message : String(e);
       } finally {
         this.coinControl.loading = false;
       }
     },
-    refreshRows() {
+    refreshRows(): void {
       const start = (this.coinControl.currentPage - 1) * 10;
       this.coinControl.getrows = this.coinControl.utxos.slice(start, start + 10);
     },
-    changePage(page) {
+    changePage(page: number): void {
       this.coinControl.currentPage = page;
       this.refreshRows();
     },
-    onCheckbox(checked, index) {
+    onCheckbox(checked: boolean, index: number): void {
       if (checked) {
         this.coinControl.selectedValueSats += this.coinControl.utxos[index].satoshis;
       } else {
@@ -228,5 +250,5 @@ export default {
       this.coinControl.selectedValueAmount = Number(this.coinControl.selectedValueSats * 1e-8).toFixed(8);
     },
   },
-};
+});
 </script>

@@ -6,6 +6,8 @@
   </footer>
 </template>
 
-<script>
-export default { name: 'FootSection' };
+<script lang="ts">
+import { defineComponent } from 'vue';
+
+export default defineComponent({ name: 'FootSection' });
 </script>

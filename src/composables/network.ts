@@ -4,9 +4,15 @@
 import bitgotx from 'bitgo-utxo-lib';
 import { resolveNetwork } from '../utils';
 
-export const bitgo = bitgotx;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const bitgo: any = bitgotx;
 
-export function getNetwork(chain, isTestnet) {
+export type Chain = 'flux' | 'bitcoin';
+
+// bitgotx network objects have no public type — returning `any` lets the
+// callers pass the result to bitgotx APIs without casts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getNetwork(chain: Chain | string, isTestnet: boolean): any {
   return resolveNetwork(bitgotx.networks, chain, isTestnet);
 }
 
@@ -15,7 +21,11 @@ export const TESTNET_FLUX_EXPLORER = 'https://testnet.runonflux.io';
 export const MAINNET_BTC_BLOCKBOOK = 'https://blockbookbitcoin.app.runonflux.io';
 export const TESTNET_BTC_BLOCKBOOK = 'https://blockbookbitcointestnet.app.runonflux.io';
 
-export function utxoEndpoint(chain, isTestnet, address) {
+export function utxoEndpoint(
+  chain: Chain | string,
+  isTestnet: boolean,
+  address: string,
+): string {
   if (chain === 'flux') {
     const base = isTestnet ? TESTNET_FLUX_EXPLORER : MAINNET_FLUX_EXPLORER;
     return `${base}/api/addr/${address}/utxo`;
@@ -24,8 +34,19 @@ export function utxoEndpoint(chain, isTestnet, address) {
   return `${base}/api/v2/utxo/${address}`;
 }
 
+export interface Utxo {
+  txid: string;
+  vout: number;
+  scriptPubKey: string;
+  satoshis: number;
+  amount: string;
+  confirmations: number;
+  coinbase: boolean;
+}
+
 // Normalize utxos from either explorer/blockbook into a single shape
-export function normalizeUtxo(chain, x) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeUtxo(chain: Chain | string, x: any): Utxo {
   const sats = chain === 'flux' ? Number(x.satoshis) : Number(x.value);
   return {
     txid: x.txid,

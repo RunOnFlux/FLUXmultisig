@@ -4,15 +4,17 @@
 
 import { reactive } from 'vue';
 
-export const toastState = reactive({ visible: false });
+interface ToastState { visible: boolean }
 
-let timer = null;
+export const toastState: ToastState = reactive({ visible: false });
 
-export async function copyToClipboard(text) {
+let timer: ReturnType<typeof setTimeout> | null = null;
+
+export async function copyToClipboard(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
     toastState.visible = true;
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       toastState.visible = false;
     }, 1400);
