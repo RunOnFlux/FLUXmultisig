@@ -28,88 +28,163 @@
         </div>
       </div>
       <div class="field">
-        <label class="field__label">My multisig {{ chain === 'flux' ? 'redeem script' : 'witness script' }}</label>
+        <div class="field__head">
+          <label class="field__label">My multisig {{ chain === 'flux' ? 'redeem script' : 'witness script' }}</label>
+          <button
+            class="ab-toggle"
+            :class="{
+              'ab-toggle--open': libraryOpen,
+              'ab-toggle--match': !!matchedSaved,
+            }"
+            :aria-pressed="libraryOpen"
+            :aria-label="libraryOpen ? 'Hide saved scripts' : 'Show saved scripts'"
+            type="button"
+            @click="libraryOpen = !libraryOpen"
+          >
+            <svg
+              class="ab-toggle__icon"
+              viewBox="0 0 16 16"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="square"
+              stroke-linejoin="miter"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="2"
+                width="10.5"
+                height="12"
+              />
+              <line
+                x1="3"
+                y1="5"
+                x2="5.2"
+                y2="5"
+              />
+              <line
+                x1="3"
+                y1="8"
+                x2="5.2"
+                y2="8"
+              />
+              <line
+                x1="3"
+                y1="11"
+                x2="5.2"
+                y2="11"
+              />
+              <line
+                x1="7"
+                y1="6"
+                x2="11.5"
+                y2="6"
+              />
+              <line
+                x1="7"
+                y1="9"
+                x2="11.5"
+                y2="9"
+              />
+            </svg>
+            <span class="ab-toggle__label">Saved</span>
+            <span
+              v-if="savedScripts.length"
+              class="ab-toggle__count"
+            >{{ savedScripts.length }}</span>
+            <span
+              v-if="matchedSaved"
+              class="ab-toggle__dot"
+              :title="`Matches: ${matchedSaved.label}`"
+            />
+          </button>
+        </div>
         <textarea
           v-model="signedTx.redeemScript"
           :aria-label="chain === 'flux' ? 'Redeem Script' : 'Witness Script'"
           class="textarea"
           rows="3"
         />
-        <div
-          v-if="showLibrary"
-          class="lib"
-        >
-          <div class="lib__head">
-            <span class="lib__title">
-              <span class="lib__bar" />
-              My saved scripts
-            </span>
-            <span class="lib__count">
-              <strong>{{ savedScripts.length }}</strong>
-              <span class="lib__count-unit">{{ savedScripts.length === 1 ? 'saved' : 'saved' }}</span>
-            </span>
-          </div>
+        <transition name="lib-fade">
           <div
-            v-if="!savedScripts.length"
-            class="lib__empty"
+            v-if="libraryOpen"
+            class="lib"
           >
-            <span class="lib__empty-mark">·</span>
-            No saved scripts yet. Save the redeem script above to recall it later.
-          </div>
-          <ul
-            v-else
-            class="lib__list"
-          >
-            <li
-              v-for="r in savedScripts"
-              :key="r.id"
-              class="lib__row"
-              :class="{ 'lib__row--active': matchedSaved && matchedSaved.id === r.id }"
-              tabindex="0"
-              role="button"
-              :aria-pressed="matchedSaved && matchedSaved.id === r.id"
-              @click="loadById(r.id)"
-              @keydown.enter.prevent="loadById(r.id)"
-              @keydown.space.prevent="loadById(r.id)"
+            <div class="lib__head">
+              <span class="lib__title">
+                <span class="lib__bar" />
+                My saved scripts
+              </span>
+              <span class="lib__count">
+                <strong>{{ savedScripts.length }}</strong>
+                <span class="lib__count-unit">{{ savedScripts.length === 1 ? 'saved' : 'saved' }}</span>
+              </span>
+            </div>
+            <div
+              v-if="!savedScripts.length"
+              class="lib__empty"
             >
-              <span class="lib__mark" />
-              <span class="lib__label">{{ r.label }}</span>
-              <span
-                v-if="r.address"
-                class="lib__addr"
-              >{{ truncateAddress(r.address) }}</span>
-              <span
-                v-else
-                class="lib__addr lib__addr--bare"
-              >{{ shortScript(r.script) }}</span>
-              <button
-                class="lib__del"
-                :aria-label="`Delete ${r.label}`"
-                @click.stop="deleteById(r.id)"
+              <span class="lib__empty-mark">·</span>
+              No saved scripts yet. Save the redeem script above to recall it later.
+            </div>
+            <ul
+              v-else
+              class="lib__list"
+            >
+              <li
+                v-for="r in savedScripts"
+                :key="r.id"
+                class="lib__row"
+                :class="{ 'lib__row--active': matchedSaved && matchedSaved.id === r.id }"
+                tabindex="0"
+                role="button"
+                :aria-pressed="matchedSaved && matchedSaved.id === r.id"
+                @click="loadById(r.id)"
+                @keydown.enter.prevent="loadById(r.id)"
+                @keydown.space.prevent="loadById(r.id)"
               >
-                ×
+                <span class="lib__mark" />
+                <span class="lib__label">{{ r.label }}</span>
+                <span
+                  v-if="r.address"
+                  class="lib__addr"
+                >{{ truncateAddress(r.address) }}</span>
+                <span
+                  v-else
+                  class="lib__addr lib__addr--bare"
+                >{{ shortScript(r.script) }}</span>
+                <button
+                  class="lib__del"
+                  :aria-label="`Delete ${r.label}`"
+                  @click.stop="deleteById(r.id)"
+                >
+                  ×
+                </button>
+              </li>
+            </ul>
+            <div class="lib__foot">
+              <button
+                class="lib__save"
+                :disabled="!isValidRedeem"
+                @click="saveCurrentScript"
+              >
+                <span class="lib__save-glyph">{{ matchedSaved ? '✎' : '+' }}</span>
+                <span>{{ matchedSaved ? `Rename ${matchedSaved.label}` : 'Save current' }}</span>
               </button>
-            </li>
-          </ul>
-          <div class="lib__foot">
-            <button
-              class="lib__save"
-              :disabled="!isValidRedeem"
-              @click="saveCurrentScript"
-            >
-              <span class="lib__save-glyph">{{ matchedSaved ? '✎' : '+' }}</span>
-              <span>{{ matchedSaved ? `Rename ${matchedSaved.label}` : 'Save current' }}</span>
-            </button>
-            <span
-              v-if="!isValidRedeem && !savedScripts.length"
-              class="lib__hint"
-            >paste a valid redeem script above</span>
-            <span
-              v-else-if="!isValidRedeem"
-              class="lib__hint"
-            >current script invalid</span>
+              <span
+                v-if="!isValidRedeem && !savedScripts.length"
+                class="lib__hint"
+              >paste a valid redeem script above</span>
+              <span
+                v-else-if="!isValidRedeem"
+                class="lib__hint"
+              >current script invalid</span>
+            </div>
           </div>
-        </div>
+        </transition>
       </div>
       <div class="field">
         <div class="field__head">
@@ -354,6 +429,7 @@ interface Data {
   storeRev: number;
   importing: boolean;
   importError: string;
+  libraryOpen: boolean;
 }
 
 export default defineComponent({
@@ -376,6 +452,7 @@ export default defineComponent({
       storeRev: 0,
       importing: false,
       importError: '',
+      libraryOpen: false,
     };
   },
   computed: {
@@ -478,11 +555,6 @@ export default defineComponent({
       const rs = (this.signedTx.redeemScript || '').trim();
       if (!rs) return undefined;
       return findByScript(rs, this.chain, this.isTestnet);
-    },
-    showLibrary(): boolean {
-      const rev = this.storeRev;
-      if (rev < 0) return false;
-      return this.savedScripts.length > 0 || this.isValidRedeem;
     },
     isValidRedeem(): boolean {
       const rs = (this.signedTx.redeemScript || '').trim();

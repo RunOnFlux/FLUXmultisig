@@ -712,6 +712,112 @@ html, body {
   font-size: 10px;
 }
 
+/* address-book toggle for the saved-script library */
+.ab-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 5px 10px 5px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.05s;
+}
+
+.ab-toggle:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.ab-toggle:active { transform: translateY(1px); }
+
+.ab-toggle:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.ab-toggle--open {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.ab-toggle--open:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ab-toggle__icon {
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ab-toggle--open .ab-toggle__icon { transform: rotate(-4deg); }
+
+.ab-toggle__label { letter-spacing: 0.16em; }
+
+.ab-toggle__count {
+  font-feature-settings: "tnum";
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.ab-toggle--open .ab-toggle__count {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ab-toggle__dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 8px var(--accent-glow);
+  animation: ab-dot-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ab-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--bg), 0 0 6px var(--accent-glow); }
+  50% { box-shadow: 0 0 0 2px var(--bg), 0 0 14px color-mix(in srgb, var(--accent) 60%, transparent); }
+}
+
+/* library reveal/hide transition */
+.lib-fade-enter-active,
+.lib-fade-leave-active {
+  transition: opacity 0.22s, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  max-height: 600px;
+}
+
+.lib-fade-enter-from,
+.lib-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+}
+
 /* saved redeem-script library card */
 .lib {
   margin-top: 14px;
@@ -720,12 +826,6 @@ html, body {
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   overflow: hidden;
-  animation: lib-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-}
-
-@keyframes lib-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .lib__head {
