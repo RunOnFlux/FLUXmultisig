@@ -784,23 +784,104 @@ html, body {
   color: var(--accent);
 }
 
-.ab-toggle__dot {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow:
-    0 0 0 2px var(--bg),
-    0 0 8px var(--accent-glow);
-  animation: ab-dot-pulse 2.4s ease-in-out infinite;
+/* container for chip + toggle on the right side of the field head */
+.field__head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-@keyframes ab-dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px var(--bg), 0 0 6px var(--accent-glow); }
-  50% { box-shadow: 0 0 0 2px var(--bg), 0 0 14px color-mix(in srgb, var(--accent) 60%, transparent); }
+/* "using X" chip — current textarea matches a saved script */
+.match-chip {
+  appearance: none;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius);
+  padding: 4px 10px 4px 8px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  max-width: 240px;
+  transition: border-color 0.15s, background 0.15s, transform 0.05s;
+}
+
+.match-chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.match-chip:active { transform: translateY(1px); }
+
+.match-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.match-chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+  flex-shrink: 0;
+}
+
+.match-chip__from {
+  color: color-mix(in srgb, var(--accent) 60%, var(--text-faint));
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 9px;
+}
+
+.match-chip__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Save now" button — valid script not yet in library */
+.save-now-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-style 0.15s, background 0.15s, transform 0.05s;
+}
+
+.save-now-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-style: solid;
+}
+
+.save-now-btn:active { transform: translateY(1px); }
+
+.save-now-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.save-now-btn__glyph {
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 /* library reveal/hide transition */

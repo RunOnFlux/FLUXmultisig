@@ -30,77 +30,92 @@
       <div class="field">
         <div class="field__head">
           <label class="field__label">My multisig {{ chain === 'flux' ? 'redeem script' : 'witness script' }}</label>
-          <button
-            class="ab-toggle"
-            :class="{
-              'ab-toggle--open': libraryOpen,
-              'ab-toggle--match': !!matchedSaved,
-            }"
-            :aria-pressed="libraryOpen"
-            :aria-label="libraryOpen ? 'Hide saved scripts' : 'Show saved scripts'"
-            type="button"
-            @click="libraryOpen = !libraryOpen"
-          >
-            <svg
-              class="ab-toggle__icon"
-              viewBox="0 0 16 16"
-              width="13"
-              height="13"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.2"
-              stroke-linecap="square"
-              stroke-linejoin="miter"
-              aria-hidden="true"
-            >
-              <rect
-                x="3"
-                y="2"
-                width="10.5"
-                height="12"
-              />
-              <line
-                x1="3"
-                y1="5"
-                x2="5.2"
-                y2="5"
-              />
-              <line
-                x1="3"
-                y1="8"
-                x2="5.2"
-                y2="8"
-              />
-              <line
-                x1="3"
-                y1="11"
-                x2="5.2"
-                y2="11"
-              />
-              <line
-                x1="7"
-                y1="6"
-                x2="11.5"
-                y2="6"
-              />
-              <line
-                x1="7"
-                y1="9"
-                x2="11.5"
-                y2="9"
-              />
-            </svg>
-            <span class="ab-toggle__label">Saved</span>
-            <span
-              v-if="savedScripts.length"
-              class="ab-toggle__count"
-            >{{ savedScripts.length }}</span>
-            <span
+          <div class="field__head-actions">
+            <button
               v-if="matchedSaved"
-              class="ab-toggle__dot"
-              :title="`Matches: ${matchedSaved.label}`"
-            />
-          </button>
+              class="match-chip"
+              type="button"
+              :title="`Loaded from saved: ${matchedSaved.label} — click to open library`"
+              @click="libraryOpen = !libraryOpen"
+            >
+              <span class="match-chip__dot" />
+              <span class="match-chip__from">using</span>
+              <span class="match-chip__name">{{ matchedSaved.label }}</span>
+            </button>
+            <button
+              v-else-if="isValidRedeem"
+              class="save-now-btn"
+              type="button"
+              title="Save this redeem script to your local library"
+              @click="saveCurrentScript"
+            >
+              <span class="save-now-btn__glyph">+</span>
+              <span>Save now</span>
+            </button>
+            <button
+              class="ab-toggle"
+              :class="{ 'ab-toggle--open': libraryOpen }"
+              :aria-pressed="libraryOpen"
+              :aria-label="libraryOpen ? 'Hide saved scripts' : 'Show saved scripts'"
+              type="button"
+              @click="libraryOpen = !libraryOpen"
+            >
+              <svg
+                class="ab-toggle__icon"
+                viewBox="0 0 16 16"
+                width="13"
+                height="13"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="square"
+                stroke-linejoin="miter"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="2"
+                  width="10.5"
+                  height="12"
+                />
+                <line
+                  x1="3"
+                  y1="5"
+                  x2="5.2"
+                  y2="5"
+                />
+                <line
+                  x1="3"
+                  y1="8"
+                  x2="5.2"
+                  y2="8"
+                />
+                <line
+                  x1="3"
+                  y1="11"
+                  x2="5.2"
+                  y2="11"
+                />
+                <line
+                  x1="7"
+                  y1="6"
+                  x2="11.5"
+                  y2="6"
+                />
+                <line
+                  x1="7"
+                  y1="9"
+                  x2="11.5"
+                  y2="9"
+                />
+              </svg>
+              <span class="ab-toggle__label">Saved</span>
+              <span
+                v-if="savedScripts.length"
+                class="ab-toggle__count"
+              >{{ savedScripts.length }}</span>
+            </button>
+          </div>
         </div>
         <textarea
           v-model="signedTx.redeemScript"
