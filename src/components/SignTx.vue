@@ -35,45 +35,96 @@
           class="textarea"
           rows="3"
         />
-        <div class="script-store">
-          <select
-            v-if="savedScripts.length"
-            class="input input--small"
-            :value="''"
-            @change="onLoadSaved(($event.target as HTMLSelectElement).value)"
+        <div
+          v-if="showLibrary"
+          class="lib"
+        >
+          <div class="lib__head">
+            <span class="lib__title">
+              <span class="lib__bar" />
+              My saved scripts
+            </span>
+            <span class="lib__count">
+              <strong>{{ savedScripts.length }}</strong>
+              <span class="lib__count-unit">{{ savedScripts.length === 1 ? 'saved' : 'saved' }}</span>
+            </span>
+          </div>
+          <div
+            v-if="!savedScripts.length"
+            class="lib__empty"
           >
-            <option
-              value=""
-              disabled
-            >
-              Load saved…
-            </option>
-            <option
+            <span class="lib__empty-mark">·</span>
+            No saved scripts yet. Save the redeem script above to recall it later.
+          </div>
+          <ul
+            v-else
+            class="lib__list"
+          >
+            <li
               v-for="r in savedScripts"
               :key="r.id"
-              :value="r.id"
+              class="lib__row"
+              :class="{ 'lib__row--active': matchedSaved && matchedSaved.id === r.id }"
+              tabindex="0"
+              role="button"
+              :aria-pressed="matchedSaved && matchedSaved.id === r.id"
+              @click="loadById(r.id)"
+              @keydown.enter.prevent="loadById(r.id)"
+              @keydown.space.prevent="loadById(r.id)"
             >
-              {{ r.label }}
-            </option>
-          </select>
-          <button
-            v-if="signedTx.redeemScript && isValidRedeem"
-            class="btn btn--ghost btn--micro"
-            @click="saveCurrentScript"
-          >
-            {{ matchedSaved ? `Rename "${matchedSaved.label}"…` : 'Save…' }}
-          </button>
-          <button
-            v-if="matchedSaved"
-            class="btn btn--ghost btn--micro"
-            @click="deleteMatched"
-          >
-            Delete
-          </button>
+              <span class="lib__mark" />
+              <span class="lib__label">{{ r.label }}</span>
+              <span
+                v-if="r.address"
+                class="lib__addr"
+              >{{ truncateAddress(r.address) }}</span>
+              <span
+                v-else
+                class="lib__addr lib__addr--bare"
+              >{{ shortScript(r.script) }}</span>
+              <button
+                class="lib__del"
+                :aria-label="`Delete ${r.label}`"
+                @click.stop="deleteById(r.id)"
+              >
+                ×
+              </button>
+            </li>
+          </ul>
+          <div class="lib__foot">
+            <button
+              class="lib__save"
+              :disabled="!isValidRedeem"
+              @click="saveCurrentScript"
+            >
+              <span class="lib__save-glyph">{{ matchedSaved ? '✎' : '+' }}</span>
+              <span>{{ matchedSaved ? `Rename ${matchedSaved.label}` : 'Save current' }}</span>
+            </button>
+            <span
+              v-if="!isValidRedeem && !savedScripts.length"
+              class="lib__hint"
+            >paste a valid redeem script above</span>
+            <span
+              v-else-if="!isValidRedeem"
+              class="lib__hint"
+            >current script invalid</span>
+          </div>
         </div>
       </div>
       <div class="field">
-        <label class="field__label">Transaction to sign</label>
+        <div class="field__head">
+          <label class="field__label">Transaction to sign</label>
+          <button
+            class="link-btn"
+            type="button"
+            :disabled="importing"
+            @click="importToSignField"
+          >
+            <span class="link-btn__glyph">↥</span>
+            <span>{{ importing ? 'Importing…' : 'Import from file' }}</span>
+            <span class="link-btn__ext">.json / .json.gz</span>
+          </button>
+        </div>
         <textarea
           v-model="signedTx.rawtx"
           aria-label="Transaction to sign"
@@ -85,6 +136,12 @@
           class="field__error"
         >
           {{ hexError }}
+        </div>
+        <div
+          v-if="importError"
+          class="field__error"
+        >
+          Import failed: {{ importError }}
         </div>
       </div>
       <div
@@ -163,6 +220,21 @@
             :class="{ 'tx-size__val--warn': signedSizeStats.max > TX_SIZE_WARN_BYTES }"
           >{{ formatBytes(signedSizeStats.max) }}</span>
         </div>
+        <div class="kv__row">
+          <span class="kv__label">Export</span>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="exportSignedJson"
+          >
+            JSON
+          </button>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="exportSignedGzip"
+          >
+            .json.gz
+          </button>
+        </div>
       </div>
       <div
         v-if="signedTxList.length > 1"
@@ -177,12 +249,26 @@
             class="tx-size__warn"
           >⚠ {{ signedSizeStats.oversized }} over {{ formatBytes(TX_SIZE_WARN_BYTES) }}</span>
         </div>
-        <button
-          class="btn btn--primary"
-          @click="copyToClipboard(JSON.stringify(signedTxList))"
-        >
-          Copy all as JSON array
-        </button>
+        <div class="export-row">
+          <button
+            class="btn btn--primary"
+            @click="copyToClipboard(JSON.stringify(signedTxList))"
+          >
+            Copy all as JSON array
+          </button>
+          <button
+            class="btn btn--ghost"
+            @click="exportSignedJson"
+          >
+            Export JSON
+          </button>
+          <button
+            class="btn btn--ghost"
+            @click="exportSignedGzip"
+          >
+            Export .json.gz
+          </button>
+        </div>
         <details class="expand">
           <summary class="expand__summary">
             <span class="expand__chevron">›</span>
@@ -233,6 +319,8 @@ import {
   getValue, hasValue, setValue, saveToStorage,
 } from '../composables/utxoCache';
 import { copyToClipboard } from '../composables/copyToast';
+import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
+import { pickFile, readTextFromFile, normalizeTxImport } from '../composables/upload';
 import {
   listRedeemScriptsFor,
   saveRedeemScript,
@@ -258,7 +346,15 @@ type Phase = 'fetching' | 'signing' | '';
 interface Progress { current: number; total: number; phase: Phase }
 interface SigStatus { sigs: number; threshold: number; pubkeys: number; valid: boolean }
 interface SigStatusGroup { start: number; end: number; status: SigStatus }
-interface Data { signedTx: SignState; signedTxList: string[]; loading: boolean; progress: Progress; storeRev: number }
+interface Data {
+  signedTx: SignState;
+  signedTxList: string[];
+  loading: boolean;
+  progress: Progress;
+  storeRev: number;
+  importing: boolean;
+  importError: string;
+}
 
 export default defineComponent({
   name: 'SignTx',
@@ -278,6 +374,8 @@ export default defineComponent({
       loading: false,
       progress: { current: 0, total: 0, phase: '' },
       storeRev: 0,
+      importing: false,
+      importError: '',
     };
   },
   computed: {
@@ -381,6 +479,11 @@ export default defineComponent({
       if (!rs) return undefined;
       return findByScript(rs, this.chain, this.isTestnet);
     },
+    showLibrary(): boolean {
+      const rev = this.storeRev;
+      if (rev < 0) return false;
+      return this.savedScripts.length > 0 || this.isValidRedeem;
+    },
     isValidRedeem(): boolean {
       const rs = (this.signedTx.redeemScript || '').trim();
       if (!rs) return false;
@@ -432,10 +535,39 @@ export default defineComponent({
     truncateHex,
     formatBytes,
     hexByteSize,
-    onLoadSaved(id: string) {
-      if (!id) return;
+    loadById(id: string): void {
       const found = this.savedScripts.find((r) => r.id === id);
       if (found) this.signedTx.redeemScript = found.script;
+    },
+    deleteById(id: string): void {
+      const target = this.savedScripts.find((r) => r.id === id);
+      if (!target) return;
+      // eslint-disable-next-line no-alert
+      if (!window.confirm(`Delete saved script "${target.label}"?`)) return;
+      removeRedeemScript(id);
+      this.storeRev += 1;
+    },
+    truncateAddress(addr: string): string {
+      if (!addr || addr.length <= 14) return addr;
+      return `${addr.slice(0, 7)}…${addr.slice(-5)}`;
+    },
+    shortScript(script: string): string {
+      if (!script) return '';
+      return `${script.slice(0, 6)}…${script.slice(-4)}`;
+    },
+    async importToSignField(): Promise<void> {
+      this.importError = '';
+      this.importing = true;
+      try {
+        const file = await pickFile();
+        if (!file) return;
+        const text = await readTextFromFile(file);
+        this.signedTx.rawtx = normalizeTxImport(text);
+      } catch (e) {
+        this.importError = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.importing = false;
+      }
     },
     saveCurrentScript() {
       const script = (this.signedTx.redeemScript || '').trim();
@@ -459,12 +591,23 @@ export default defineComponent({
       });
       this.storeRev += 1;
     },
-    deleteMatched() {
-      if (!this.matchedSaved) return;
-      // eslint-disable-next-line no-alert
-      if (!window.confirm(`Delete saved script "${this.matchedSaved.label}"?`)) return;
-      removeRedeemScript(this.matchedSaved.id);
-      this.storeRev += 1;
+    exportFilename(ext: string): string {
+      const env = this.isTestnet ? 'testnet' : 'mainnet';
+      return `signed-tx-${this.chain}-${env}-${timestampSlug()}.${ext}`;
+    },
+    exportSignedJson() {
+      if (!this.signedTxList.length) return;
+      const payload = JSON.stringify(this.signedTxList, null, 2);
+      downloadBlob(
+        new Blob([payload], { type: 'application/json' }),
+        this.exportFilename('json'),
+      );
+    },
+    async exportSignedGzip() {
+      if (!this.signedTxList.length) return;
+      const payload = JSON.stringify(this.signedTxList);
+      const blob = await gzipBlob(payload);
+      downloadBlob(blob, this.exportFilename('json.gz'));
     },
     groupLabel(g: SigStatusGroup): string {
       if (this.signatureStatus.length <= 1) return '';

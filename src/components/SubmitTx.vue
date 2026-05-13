@@ -11,13 +11,31 @@
     </p>
     <div class="panel__body">
       <div class="field">
-        <label class="field__label">Transaction to submit</label>
+        <div class="field__head">
+          <label class="field__label">Transaction to submit</label>
+          <button
+            class="link-btn"
+            type="button"
+            :disabled="importing"
+            @click="importFromFile"
+          >
+            <span class="link-btn__glyph">↥</span>
+            <span>{{ importing ? 'Importing…' : 'Import from file' }}</span>
+            <span class="link-btn__ext">.json / .json.gz</span>
+          </button>
+        </div>
         <textarea
           v-model="submitedTx.rawtx"
           aria-label="Transaction to submit"
           class="textarea"
           rows="4"
         />
+        <div
+          v-if="importError"
+          class="field__error"
+        >
+          Import failed: {{ importError }}
+        </div>
       </div>
       <div class="actions">
         <button
@@ -80,6 +98,7 @@ import {
   type Chain,
 } from '../composables/network';
 import { copyToClipboard } from '../composables/copyToast';
+import { pickFile, readTextFromFile, normalizeTxImport } from '../composables/upload';
 
 interface SubmitResult { ok: boolean; status: number | null; data: unknown }
 interface Progress { current: number; total: number }
@@ -88,6 +107,8 @@ interface Data {
   submitedTxList: SubmitResult[];
   loading: boolean;
   progress: Progress;
+  importing: boolean;
+  importError: string;
 }
 
 export default defineComponent({
@@ -103,6 +124,8 @@ export default defineComponent({
       submitedTxList: [],
       loading: false,
       progress: { current: 0, total: 0 },
+      importing: false,
+      importError: '',
     };
   },
   computed: {
@@ -114,6 +137,20 @@ export default defineComponent({
   },
   methods: {
     copyToClipboard,
+    async importFromFile(): Promise<void> {
+      this.importError = '';
+      this.importing = true;
+      try {
+        const file = await pickFile();
+        if (!file) return;
+        const text = await readTextFromFile(file);
+        this.submitedTx.rawtx = normalizeTxImport(text);
+      } catch (e) {
+        this.importError = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.importing = false;
+      }
+    },
     async submit(): Promise<void> {
       this.loading = true;
       this.progress = { current: 0, total: 0 };

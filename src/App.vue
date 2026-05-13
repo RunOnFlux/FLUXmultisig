@@ -659,17 +659,317 @@ html, body {
   font-size: 11px;
 }
 
-/* saved redeem-script chooser, sits under a textarea */
-.script-store {
+/* field head: label + optional inline action (e.g. import) */
+.field__head {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
 }
 
-.script-store .input--small {
-  max-width: 240px;
+.field__head .field__label { margin-bottom: 0; }
+
+/* link-style action button — used inline next to field labels */
+.link-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  transition: color 0.15s;
+}
+
+.link-btn:hover { color: var(--accent); }
+
+.link-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.link-btn:disabled:hover { color: var(--text-dim); }
+
+.link-btn__glyph {
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.link-btn__ext {
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 10px;
+}
+
+/* saved redeem-script library card */
+.lib {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: lib-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes lib-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.lib__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--accent) 6%, transparent),
+      transparent 60%
+    );
+}
+
+.lib__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.lib__bar {
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.lib__count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.lib__count strong {
+  color: var(--text);
+  font-feature-settings: "tnum";
+  font-weight: 700;
+}
+
+.lib__count-unit { color: var(--text-faint); }
+
+.lib__empty {
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+  display: flex;
+  gap: 8px;
+}
+
+.lib__empty-mark {
+  color: var(--accent);
+  font-style: normal;
+  letter-spacing: 0;
+}
+
+.lib__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lib__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--border);
+  transition: background 0.12s, padding 0.12s;
+  outline: none;
+}
+
+.lib__row:last-child { border-bottom: none; }
+
+.lib__row:hover,
+.lib__row:focus-visible {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+
+.lib__row:focus-visible {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.lib__row--active {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+
+.lib__row--active:hover {
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface));
+}
+
+.lib__mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex-shrink: 0;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.lib__row:hover .lib__mark,
+.lib__row:focus-visible .lib__mark { background: var(--text-dim); }
+
+.lib__row--active .lib__mark {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+  transform: scale(1.15);
+}
+
+.lib__label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.lib__row--active .lib__label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.lib__addr {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  font-feature-settings: "tnum";
+}
+
+.lib__addr--bare { font-style: italic; }
+
+.lib__del {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lib__row:hover .lib__del,
+.lib__row:focus-within .lib__del { opacity: 1; }
+
+.lib__del:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.lib__foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+.lib__save {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.05s;
+}
+
+.lib__save:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  border-style: solid;
+}
+
+.lib__save:active:not(:disabled) { transform: translateY(1px); }
+
+.lib__save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.lib__save-glyph {
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.lib__save:disabled .lib__save-glyph { color: var(--text-faint); }
+
+.lib__hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+
+/* export button row */
+.export-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 /* tx size readout (single and multi) */
