@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Finalise transaction
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Combine collected signatures into a final, broadcast-ready transaction.
@@ -254,6 +263,14 @@ export default defineComponent({
       const payload = JSON.stringify(this.finalisedTxList);
       const blob = await gzipBlob(payload);
       downloadBlob(blob, this.exportFilename('json.gz'));
+    },
+    clear(): void {
+      this.finalisedTx = { rawtx: '', hex: '' };
+      this.finalisedTxList = [];
+      this.loading = false;
+      this.progress = { current: 0, total: 0 };
+      this.importing = false;
+      this.importError = '';
     },
     async finalise(): Promise<void> {
       this.loading = true;

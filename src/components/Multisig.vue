@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Multisig address
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Combine N public keys and a required-signature threshold to derive a multisignature address.
@@ -164,6 +173,12 @@ export default defineComponent({
     },
     addPubKey() {
       this.inputs += 1;
+    },
+    clear() {
+      this.publickeys = [];
+      this.inputs = 1;
+      this.reqsig = 1;
+      this.multisig = { address: '', redeemScript: '' };
     },
     saveCurrentScript() {
       const script = this.multisig.redeemScript;

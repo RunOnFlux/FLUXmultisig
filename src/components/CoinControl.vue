@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Coin control
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Inspect spendable UTXOs for an address and select which outputs to include in the next build.
@@ -248,6 +257,19 @@ export default defineComponent({
         this.coinControl.selectedValueSats -= this.coinControl.utxos[index].satoshis;
       }
       this.coinControl.selectedValueAmount = Number(this.coinControl.selectedValueSats * 1e-8).toFixed(8);
+    },
+    clear(): void {
+      this.coinControl.address = '';
+      this.coinControl.utxos = [];
+      this.coinControl.selected = [];
+      this.coinControl.errorMsg = '';
+      this.coinControl.currentPage = 1;
+      this.coinControl.getrows = [];
+      this.coinControl.numpages = 0;
+      this.coinControl.show = false;
+      this.coinControl.selectedValueSats = 0;
+      this.coinControl.selectedValueAmount = 0;
+      this.coinControl.loading = false;
     },
   },
 });
