@@ -11,13 +11,31 @@
     </p>
     <div class="panel__body">
       <div class="field">
-        <label class="field__label">Transaction to finalise</label>
+        <div class="field__head">
+          <label class="field__label">Transaction to finalise</label>
+          <button
+            class="link-btn"
+            type="button"
+            :disabled="importing"
+            @click="importFromFile"
+          >
+            <span class="link-btn__glyph">↥</span>
+            <span>{{ importing ? 'Importing…' : 'Import from file' }}</span>
+            <span class="link-btn__ext">.json / .json.gz</span>
+          </button>
+        </div>
         <textarea
           v-model="finalisedTx.rawtx"
           aria-label="Transaction to finalise"
           class="textarea"
           rows="4"
         />
+        <div
+          v-if="importError"
+          class="field__error"
+        >
+          Import failed: {{ importError }}
+        </div>
       </div>
       <div class="actions">
         <button
@@ -56,17 +74,46 @@
             Copy
           </button>
         </div>
+        <div class="kv__row">
+          <span class="kv__label">Export</span>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="exportJson"
+          >
+            JSON
+          </button>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="exportGzip"
+          >
+            .json.gz
+          </button>
+        </div>
       </div>
       <div
         v-if="finalisedTxList.length > 1"
         class="multi"
       >
-        <button
-          class="btn btn--primary"
-          @click="copyToClipboard(JSON.stringify(finalisedTxList))"
-        >
-          Copy all as JSON array
-        </button>
+        <div class="export-row">
+          <button
+            class="btn btn--primary"
+            @click="copyToClipboard(JSON.stringify(finalisedTxList))"
+          >
+            Copy all as JSON array
+          </button>
+          <button
+            class="btn btn--ghost"
+            @click="exportJson"
+          >
+            Export JSON
+          </button>
+          <button
+            class="btn btn--ghost"
+            @click="exportGzip"
+          >
+            Export .json.gz
+          </button>
+        </div>
         <details class="expand">
           <summary class="expand__summary">
             <span class="expand__chevron">›</span>
@@ -100,6 +147,8 @@ import { defineComponent, type PropType } from 'vue';
 import { bitgo, getNetwork, type Chain } from '../composables/network';
 import ProgressBar from './ProgressBar.vue';
 import { copyToClipboard } from '../composables/copyToast';
+import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
+import { pickFile, readTextFromFile, normalizeTxImport } from '../composables/upload';
 import { truncateHex } from '../utils';
 
 interface Progress { current: number; total: number }
@@ -109,6 +158,8 @@ interface Data {
   finalisedTxList: string[];
   loading: boolean;
   progress: Progress;
+  importing: boolean;
+  importError: string;
 }
 
 export default defineComponent({
@@ -124,6 +175,8 @@ export default defineComponent({
       finalisedTxList: [],
       loading: false,
       progress: { current: 0, total: 0 },
+      importing: false,
+      importError: '',
     };
   },
   computed: {
@@ -136,6 +189,38 @@ export default defineComponent({
   methods: {
     copyToClipboard,
     truncateHex,
+    async importFromFile(): Promise<void> {
+      this.importError = '';
+      this.importing = true;
+      try {
+        const file = await pickFile();
+        if (!file) return;
+        const text = await readTextFromFile(file);
+        this.finalisedTx.rawtx = normalizeTxImport(text);
+      } catch (e) {
+        this.importError = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.importing = false;
+      }
+    },
+    exportFilename(ext: string): string {
+      const env = this.isTestnet ? 'testnet' : 'mainnet';
+      return `finalised-tx-${this.chain}-${env}-${timestampSlug()}.${ext}`;
+    },
+    exportJson(): void {
+      if (!this.finalisedTxList.length) return;
+      const payload = JSON.stringify(this.finalisedTxList, null, 2);
+      downloadBlob(
+        new Blob([payload], { type: 'application/json' }),
+        this.exportFilename('json'),
+      );
+    },
+    async exportGzip(): Promise<void> {
+      if (!this.finalisedTxList.length) return;
+      const payload = JSON.stringify(this.finalisedTxList);
+      const blob = await gzipBlob(payload);
+      downloadBlob(blob, this.exportFilename('json.gz'));
+    },
     async finalise(): Promise<void> {
       this.loading = true;
       this.progress = { current: 0, total: 0 };
