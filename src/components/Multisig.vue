@@ -185,7 +185,6 @@ export default defineComponent({
       if (!script) return;
       const existing = findByScript(script, this.chain, this.isTestnet);
       const suggested = existing ? existing.label : (this.multisig.address || '');
-      // eslint-disable-next-line no-alert
       const label = window.prompt(
         'Label for this redeem script:\n\n'
         + 'Note: this is saved only in this browser\'s local storage. '

@@ -630,7 +630,6 @@ export default defineComponent({
           this.progress.current = loop + 1;
           // Yield to the browser so the progress bar can repaint between
           // synchronous iterations (the per-tx work below has no awaits).
-          // eslint-disable-next-line no-await-in-loop
           if (loop > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
           console.log('TX Loop:', loop);
           let history: HistoryUtxo[] = [];
@@ -665,7 +664,6 @@ export default defineComponent({
             }
           }
 
-          /* eslint-disable no-continue */
           for (let i = 0; i < utxos.length; i += 1) {
             if (!(utxos[i].confirmations > 0)) continue;
             if (this.avoidFluxNodeAmounts && FLUX_COLLATERAL_AMOUNTS.has(+utxos[i].satoshis)) continue;
@@ -691,7 +689,6 @@ export default defineComponent({
               break;
             }
           }
-          /* eslint-enable no-continue */
 
           if (this.sendAllFlux) {
             recipients[0].satoshis = satoshisSoFar;

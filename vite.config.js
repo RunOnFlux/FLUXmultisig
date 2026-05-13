@@ -97,10 +97,11 @@ export default defineConfig(({ command }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          // bitgo-utxo-lib + its crypto deps dominate the bundle; isolate
-          // them in a vendor chunk that's cached separately from app code.
-          'vendor-bitgo': ['bitgo-utxo-lib'],
+        // bitgo-utxo-lib + its crypto deps dominate the bundle; isolate
+        // them in a vendor chunk that's cached separately from app code.
+        manualChunks(id) {
+          if (id.includes('node_modules/bitgo-utxo-lib')) return 'vendor-bitgo';
+          return undefined;
         },
       },
       plugins: [preserveCryptoClassNames()],

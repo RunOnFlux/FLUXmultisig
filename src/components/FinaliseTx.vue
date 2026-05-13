@@ -289,7 +289,6 @@ export default defineComponent({
         for (let t = 0; t < txs.length; t += 1) {
           this.progress.current = t + 1;
           // Yield so the progress bar can repaint between sync iterations.
-          // eslint-disable-next-line no-await-in-loop
           if (t > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
           console.log('Finalizing tx:', t + 1, '/', txs.length);
           const txb = bitgo.TransactionBuilder.fromTransaction(bitgo.Transaction.fromHex(txs[t], network), network);
