@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Build unsigned transaction
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Construct an unsigned transaction from selected UTXOs.
@@ -500,6 +509,27 @@ export default defineComponent({
       const payload = JSON.stringify(hexes);
       const blob = await gzipBlob(payload);
       downloadBlob(blob, this.exportFilename('json.gz'));
+    },
+    clear(): void {
+      this.unsignedTx = {
+        myAddress: '', receiver: '', amount: 0, fee: 0, message: '', hex: '',
+      };
+      this.unsignedTxList = [];
+      this.txinfoList = [];
+      this.buildError = '';
+      this.isAdvanced = false;
+      this.avoidFluxNodeAmounts = false;
+      this.enableMaxUtxoSize = false;
+      this.maxUtxoSize = '';
+      this.sendAllFlux = false;
+      this.multipleTxes = false;
+      this.nTxLoopCount = 5;
+      this.createCollateralTx = false;
+      this.fillHotWalletFromDesposit = false;
+      this.fillHotWalletWithRewards = false;
+      this.consolidateRewards = false;
+      this.loading = false;
+      this.progress = { current: 0, total: 0 };
     },
     toggleAdvanced(): void {
       this.isAdvanced = !this.isAdvanced;

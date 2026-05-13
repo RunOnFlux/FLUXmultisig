@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Submit transaction
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Broadcast one or more finalized transactions to the network.
@@ -150,6 +159,14 @@ export default defineComponent({
       } finally {
         this.importing = false;
       }
+    },
+    clear(): void {
+      this.submitedTx = { rawtx: '', hex: '' };
+      this.submitedTxList = [];
+      this.loading = false;
+      this.progress = { current: 0, total: 0 };
+      this.importing = false;
+      this.importError = '';
     },
     async submit(): Promise<void> {
       this.loading = true;

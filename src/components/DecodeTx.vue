@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Decode transaction
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Display a human-readable summary of one transaction or a JSON array of transactions.
@@ -206,6 +215,12 @@ export default defineComponent({
         const { info, error } = this.decodeOne(hex);
         return { index, info, error };
       });
+    },
+    clear(): void {
+      this.decodeRawHex = '';
+      this.decoded = [];
+      this.importing = false;
+      this.importError = '';
     },
   },
 });

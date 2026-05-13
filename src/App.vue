@@ -513,6 +513,47 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 
+/* "Clear" button living in the top-right of every panel head */
+.section-clear {
+  margin-left: auto;
+  align-self: flex-start;
+  margin-top: 14px;
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 10px 5px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.05s;
+}
+
+.section-clear:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.section-clear:active { transform: translateY(1px); }
+
+.section-clear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, transparent);
+}
+
+.section-clear__glyph {
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
 .panel__num {
   font-family: var(--font-serif);
   font-style: italic;

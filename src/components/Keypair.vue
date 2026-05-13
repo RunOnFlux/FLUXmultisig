@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Keypair generation
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Generate a fresh elliptic-curve keypair for use in a multi-signature address.
@@ -75,6 +84,9 @@ export default defineComponent({
   },
   methods: {
     copyToClipboard,
+    clear(): void {
+      this.keypair = { publickey: '', privatekey: '' };
+    },
     generateKeypair(): void {
       const network = getNetwork(this.chain, this.isTestnet);
       const keyPair = bitgo.ECPair.makeRandom({ network });

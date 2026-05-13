@@ -5,6 +5,15 @@
       <h2 class="panel__title">
         Sign transaction
       </h2>
+      <button
+        class="section-clear"
+        type="button"
+        title="Clear this section"
+        @click="clear"
+      >
+        <span class="section-clear__glyph">↺</span>
+        <span>Clear</span>
+      </button>
     </header>
     <p class="panel__desc">
       Sign a transaction from a multisig address with your private key.
@@ -695,6 +704,17 @@ export default defineComponent({
       const payload = JSON.stringify(this.signedTxList);
       const blob = await gzipBlob(payload);
       downloadBlob(blob, this.exportFilename('json.gz'));
+    },
+    clear(): void {
+      this.signedTx = {
+        rawtx: '', privatekey: '', redeemScript: '', hex: '',
+      };
+      this.signedTxList = [];
+      this.loading = false;
+      this.progress = { current: 0, total: 0, phase: '' };
+      this.importing = false;
+      this.importError = '';
+      this.libraryOpen = false;
     },
     groupLabel(g: SigStatusGroup): string {
       if (this.signatureStatus.length <= 1) return '';
