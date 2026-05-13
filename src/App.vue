@@ -593,6 +593,172 @@ html, body {
   letter-spacing: 0.04em;
 }
 
+/* sign-side signature status display */
+.sig-status {
+  margin: 12px 0;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.sig-status__head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.sig-status__row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+
+.sig-status__label {
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  min-width: 44px;
+}
+
+.sig-status__count {
+  color: var(--text-dim);
+  font-feature-settings: "tnum";
+}
+
+.sig-status__count strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.sig-status__hint {
+  color: var(--warn);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.sig-status__complete {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.sig-status__err {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+/* saved redeem-script chooser, sits under a textarea */
+.script-store {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.script-store .input--small {
+  max-width: 240px;
+}
+
+/* tx size readout (single and multi) */
+.tx-size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.tx-size--multi {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.tx-size--multi strong {
+  color: var(--text);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+}
+
+.tx-size__val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  font-feature-settings: "tnum";
+}
+
+.tx-size__val--warn,
+.tx-size__warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+/* progress bar (multi-tx operations) */
+.progress {
+  position: relative;
+  height: 22px;
+  margin: 16px 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.progress__bar {
+  height: 100%;
+  background-image: linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--accent) 70%, transparent) 25%,
+    var(--accent) 25%,
+    var(--accent) 50%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 75%,
+    var(--accent) 75%,
+    var(--accent)
+  );
+  background-size: 16px 16px;
+  animation: progress-stripes 0.8s linear infinite;
+  /* No `transition: width` — at fast iteration speeds (signing phase,
+     cache-warm) the bar lagged the label by hundreds of ms. Step updates
+     stay in lockstep with the count. */
+}
+
+@keyframes progress-stripes {
+  from { background-position: 0 0; }
+  to { background-position: 16px 0; }
+}
+
+.progress__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text);
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+
 .input,
 .textarea {
   width: 100%;

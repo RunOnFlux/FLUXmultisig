@@ -22,11 +22,20 @@
       <div class="actions">
         <button
           class="btn btn--primary"
+          :disabled="loading"
           @click="finalise"
         >
-          Finalise
+          {{ actionLabel }}<span
+            v-if="loading"
+            class="dots"
+          />
         </button>
       </div>
+      <ProgressBar
+        v-if="loading && progress.total > 1"
+        :current="progress.current"
+        :total="progress.total"
+      />
       <div
         v-if="finalisedTx.hex"
         class="alert alert--err"
@@ -89,16 +98,22 @@
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
 import { bitgo, getNetwork, type Chain } from '../composables/network';
+import ProgressBar from './ProgressBar.vue';
 import { copyToClipboard } from '../composables/copyToast';
 import { truncateHex } from '../utils';
+
+interface Progress { current: number; total: number }
 
 interface Data {
   finalisedTx: { rawtx: string; hex: string };
   finalisedTxList: string[];
+  loading: boolean;
+  progress: Progress;
 }
 
 export default defineComponent({
   name: 'FinaliseTx',
+  components: { ProgressBar },
   props: {
     chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
@@ -107,12 +122,23 @@ export default defineComponent({
     return {
       finalisedTx: { rawtx: '', hex: '' },
       finalisedTxList: [],
+      loading: false,
+      progress: { current: 0, total: 0 },
     };
+  },
+  computed: {
+    actionLabel(): string {
+      if (!this.loading) return 'Finalise';
+      if (this.progress.total > 1) return `Finalising ${this.progress.current}/${this.progress.total}`;
+      return 'Finalising';
+    },
   },
   methods: {
     copyToClipboard,
     truncateHex,
-    finalise(): void {
+    async finalise(): Promise<void> {
+      this.loading = true;
+      this.progress = { current: 0, total: 0 };
       try {
         this.finalisedTx.hex = '';
         this.finalisedTxList = [];
@@ -122,8 +148,13 @@ export default defineComponent({
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
+        this.progress.total = txs.length;
         const finalizedTxs: string[] = [];
         for (let t = 0; t < txs.length; t += 1) {
+          this.progress.current = t + 1;
+          // Yield so the progress bar can repaint between sync iterations.
+          // eslint-disable-next-line no-await-in-loop
+          if (t > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
           console.log('Finalizing tx:', t + 1, '/', txs.length);
           const txb = bitgo.TransactionBuilder.fromTransaction(bitgo.Transaction.fromHex(txs[t], network), network);
           const tx = txb.build();
@@ -134,6 +165,8 @@ export default defineComponent({
       } catch (e) {
         console.log(e);
         this.finalisedTx.hex = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.loading = false;
       }
     },
   },

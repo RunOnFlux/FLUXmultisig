@@ -66,6 +66,13 @@
           >
             Copy
           </button>
+          <button
+            v-if="multisig.redeemScript && isValidScript"
+            class="btn btn--ghost btn--micro"
+            @click="saveCurrentScript"
+          >
+            {{ savedLabel ? `Saved as ${savedLabel}` : 'Save…' }}
+          </button>
         </div>
       </div>
     </div>
@@ -76,6 +83,7 @@
 import { defineComponent, type PropType } from 'vue';
 import { bitgo, getNetwork, type Chain } from '../composables/network';
 import { copyToClipboard } from '../composables/copyToast';
+import { saveRedeemScript, findByScript } from '../composables/redeemScriptStore';
 
 const STORAGE_KEY = 'fluxmultisig:multisigSetup';
 
@@ -101,6 +109,24 @@ export default defineComponent({
       reqsig: 1,
       multisig: { address: '', redeemScript: '' },
     };
+  },
+  computed: {
+    isValidScript(): boolean {
+      const rs = this.multisig.redeemScript;
+      if (!rs) return false;
+      try {
+        const buf = Buffer.from(rs, 'hex');
+        const decoded = bitgo.script.multisig.output.decode(buf);
+        return !!decoded && Array.isArray(decoded.pubKeys);
+      } catch (_e) {
+        return false;
+      }
+    },
+    savedLabel(): string {
+      if (!this.multisig.redeemScript) return '';
+      const found = findByScript(this.multisig.redeemScript, this.chain, this.isTestnet);
+      return found ? found.label : '';
+    },
   },
   watch: {
     publickeys: {
@@ -138,6 +164,29 @@ export default defineComponent({
     },
     addPubKey() {
       this.inputs += 1;
+    },
+    saveCurrentScript() {
+      const script = this.multisig.redeemScript;
+      if (!script) return;
+      const existing = findByScript(script, this.chain, this.isTestnet);
+      const suggested = existing ? existing.label : (this.multisig.address || '');
+      // eslint-disable-next-line no-alert
+      const label = window.prompt(
+        'Label for this redeem script:\n\n'
+        + 'Note: this is saved only in this browser\'s local storage. '
+        + 'Always keep an external backup of your redeem script — '
+        + 'clearing browser data will delete it from here.',
+        suggested,
+      );
+      if (!label) return;
+      saveRedeemScript({
+        label: label.trim(),
+        script,
+        chain: this.chain,
+        isTestnet: this.isTestnet,
+        address: this.multisig.address || undefined,
+      });
+      this.$forceUpdate();
     },
     generateMultisig() {
       try {

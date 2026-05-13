@@ -203,12 +203,18 @@
           :disabled="loading"
           @click="build"
         >
-          {{ loading ? 'Building' : 'Build' }}<span
+          {{ actionLabel }}<span
             v-if="loading"
             class="dots"
           />
         </button>
       </div>
+
+      <ProgressBar
+        v-if="loading && progress.total > 1"
+        :current="progress.current"
+        :total="progress.total"
+      />
 
       <div
         v-if="buildError"
@@ -245,11 +251,27 @@
             Copy
           </button>
         </div>
+        <div class="kv__row tx-size">
+          <span class="kv__label">Size</span>
+          <span
+            class="tx-size__val"
+            :class="{ 'tx-size__val--warn': sizeStats.max > TX_SIZE_WARN_BYTES }"
+          >{{ formatBytes(sizeStats.max) }}</span>
+        </div>
       </div>
       <div
         v-if="unsignedTxList.length > 1"
         class="multi"
       >
+        <div class="tx-size tx-size--multi">
+          <span>Avg size <strong>{{ formatBytes(sizeStats.avg) }}</strong></span>
+          <span>Max <strong>{{ formatBytes(sizeStats.max) }}</strong></span>
+          <span>Total <strong>{{ formatBytes(sizeStats.total) }}</strong></span>
+          <span
+            v-if="sizeStats.oversized"
+            class="tx-size__warn"
+          >⚠ {{ sizeStats.oversized }} over {{ formatBytes(TX_SIZE_WARN_BYTES) }}</span>
+        </div>
         <button
           class="btn btn--primary"
           @click="copyToClipboard(JSON.stringify(unsignedTxList.map((x) => x.hex)))"
@@ -270,6 +292,10 @@
             >
               <span class="kv__label">Tx {{ index }}</span>
               <code class="kv__val">{{ truncateHex(item.hex) }}</code>
+              <span
+                class="tx-size__val"
+                :class="{ 'tx-size__val--warn': hexByteSize(item.hex) > TX_SIZE_WARN_BYTES }"
+              >{{ formatBytes(hexByteSize(item.hex)) }}</span>
               <button
                 class="btn btn--ghost btn--micro"
                 @click="copyToClipboard(item.hex)"
@@ -287,6 +313,7 @@
 <script lang="ts">
 import { defineComponent, inject, type PropType } from 'vue';
 import axios from 'axios';
+import ProgressBar from './ProgressBar.vue';
 import {
   bitgo,
   getNetwork,
@@ -300,7 +327,15 @@ import {
   setValue, saveToStorage,
 } from '../composables/utxoCache';
 import { copyToClipboard } from '../composables/copyToast';
-import { truncateHex, updateTitanNodeMessage, isValidAddress } from '../utils';
+import {
+  truncateHex,
+  updateTitanNodeMessage,
+  isValidAddress,
+  hexByteSize,
+  formatBytes,
+  txSizeStats,
+  TX_SIZE_WARN_BYTES,
+} from '../utils';
 
 const FLUX_COLLATERAL_AMOUNTS = new Set([4000000000000, 1250000000000, 100000000000]);
 
@@ -316,6 +351,8 @@ interface UnsignedTx {
 interface Recipient { address: string; satoshis: number }
 
 interface HistoryUtxo { txid: string; vout: number; scriptPubKey: string; satoshis: number }
+
+interface Progress { current: number; total: number }
 
 interface Data {
   unsignedTx: UnsignedTx;
@@ -334,10 +371,12 @@ interface Data {
   fillHotWalletWithRewards: boolean;
   consolidateRewards: boolean;
   loading: boolean;
+  progress: Progress;
 }
 
 export default defineComponent({
   name: 'BuildTx',
+  components: { ProgressBar },
   props: {
     chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
@@ -367,9 +406,15 @@ export default defineComponent({
       fillHotWalletWithRewards: false,
       consolidateRewards: false,
       loading: false,
+      progress: { current: 0, total: 0 },
     };
   },
   computed: {
+    actionLabel(): string {
+      if (!this.loading) return 'Build';
+      if (this.progress.total > 1) return `Building ${this.progress.current}/${this.progress.total}`;
+      return 'Building';
+    },
     addressErrorLabel(): string {
       return `Invalid ${this.chain} ${this.isTestnet ? 'testnet ' : ''}address`;
     },
@@ -382,6 +427,12 @@ export default defineComponent({
       const a = this.unsignedTx.receiver;
       if (!a) return '';
       return isValidAddress(a, this.chain, this.isTestnet) ? '' : this.addressErrorLabel;
+    },
+    sizeStats() {
+      return txSizeStats(this.unsignedTxList.map((t) => t.hex));
+    },
+    TX_SIZE_WARN_BYTES() {
+      return TX_SIZE_WARN_BYTES;
     },
   },
   watch: {
@@ -398,6 +449,8 @@ export default defineComponent({
   methods: {
     copyToClipboard,
     truncateHex,
+    formatBytes,
+    hexByteSize,
     toggleAdvanced(): void {
       this.isAdvanced = !this.isAdvanced;
       this.avoidFluxNodeAmounts = this.isAdvanced;
@@ -471,6 +524,11 @@ export default defineComponent({
     },
     async build(): Promise<void> {
       this.loading = true;
+      // Loop is multi-tx only when both flags are on; otherwise we exit after 1
+      this.progress = {
+        current: 0,
+        total: this.multipleTxes && !this.sendAllFlux ? this.nTxLoopCount : 1,
+      };
       try {
         this.buildError = '';
         this.unsignedTxList = [];
@@ -489,6 +547,11 @@ export default defineComponent({
         const usedUtxos = new Set<string>();
 
         for (let loop = 0; loop < this.nTxLoopCount; loop += 1) {
+          this.progress.current = loop + 1;
+          // Yield to the browser so the progress bar can repaint between
+          // synchronous iterations (the per-tx work below has no awaits).
+          // eslint-disable-next-line no-await-in-loop
+          if (loop > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
           console.log('TX Loop:', loop);
           let history: HistoryUtxo[] = [];
           let satoshisSoFar = 0;

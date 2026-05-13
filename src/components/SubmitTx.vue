@@ -25,12 +25,17 @@
           :disabled="loading"
           @click="submit"
         >
-          {{ loading ? 'Submitting' : 'Submit' }}<span
+          {{ actionLabel }}<span
             v-if="loading"
             class="dots"
           />
         </button>
       </div>
+      <ProgressBar
+        v-if="loading && progress.total > 1"
+        :current="progress.current"
+        :total="progress.total"
+      />
       <div
         v-if="submitedTx.hex"
         class="alert alert--err"
@@ -67,6 +72,7 @@
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
 import axios from 'axios';
+import ProgressBar from './ProgressBar.vue';
 import {
   TESTNET_FLUX_EXPLORER,
   MAINNET_BTC_BLOCKBOOK,
@@ -76,14 +82,17 @@ import {
 import { copyToClipboard } from '../composables/copyToast';
 
 interface SubmitResult { ok: boolean; status: number | null; data: unknown }
+interface Progress { current: number; total: number }
 interface Data {
   submitedTx: { rawtx: string; hex: string };
   submitedTxList: SubmitResult[];
   loading: boolean;
+  progress: Progress;
 }
 
 export default defineComponent({
   name: 'SubmitTx',
+  components: { ProgressBar },
   props: {
     chain: { type: String as PropType<Chain>, required: true },
     isTestnet: { type: Boolean, required: true },
@@ -93,12 +102,21 @@ export default defineComponent({
       submitedTx: { rawtx: '', hex: '' },
       submitedTxList: [],
       loading: false,
+      progress: { current: 0, total: 0 },
     };
+  },
+  computed: {
+    actionLabel(): string {
+      if (!this.loading) return 'Submit';
+      if (this.progress.total > 1) return `Submitting ${this.progress.current}/${this.progress.total}`;
+      return 'Submitting';
+    },
   },
   methods: {
     copyToClipboard,
     async submit(): Promise<void> {
       this.loading = true;
+      this.progress = { current: 0, total: 0 };
       try {
         this.submitedTx.hex = '';
         this.submitedTxList = [];
@@ -107,7 +125,13 @@ export default defineComponent({
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
-        const promises = txs.map((tx, index) => {
+        this.progress.total = txs.length;
+        let completed = 0;
+        const bumpProgress = () => {
+          completed += 1;
+          this.progress.current = completed;
+        };
+        const rawPromises = txs.map((tx, index) => {
           if (this.chain === 'flux' && !this.isTestnet) {
             console.log('Submitting tx:', index + 1, '/', txs.length);
             return axios({
@@ -131,6 +155,8 @@ export default defineComponent({
             : `${MAINNET_BTC_BLOCKBOOK}/api/v2/sendtx/`;
           return axios({ method: 'post', url, data: tx });
         });
+        // Bump the counter every time a request settles, regardless of order.
+        const promises = rawPromises.map((p) => p.finally(bumpProgress));
         const results = await Promise.allSettled(promises);
         this.submitedTxList = results.map((result): SubmitResult => {
           if (result.status === 'fulfilled') {

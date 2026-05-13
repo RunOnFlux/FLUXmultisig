@@ -51,6 +51,46 @@ export function isValidHex(s: unknown): boolean {
   return /^[0-9a-fA-F]+$/.test(trimmed);
 }
 
+// Soft threshold at which a transaction starts approaching node/relay
+// limits. Standard relay max is 100 KB on bitcoin, blocks accept much more,
+// but 750 KB is a useful "you should probably split this" warning level.
+export const TX_SIZE_WARN_BYTES = 750 * 1024;
+
+// Hex strings are 2 chars per byte. Math.ceil to be conservative against
+// odd-length input.
+export function hexByteSize(hex: string | null | undefined): number {
+  if (!hex) return 0;
+  return Math.ceil(hex.length / 2);
+}
+
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
+export interface TxSizeStats {
+  count: number;
+  total: number;
+  avg: number;
+  max: number;
+  oversized: number;
+}
+
+export function txSizeStats(hexes: string[]): TxSizeStats {
+  const sizes = hexes.map(hexByteSize);
+  const count = sizes.length;
+  const total = sizes.reduce((a, b) => a + b, 0);
+  return {
+    count,
+    total,
+    avg: count ? total / count : 0,
+    max: count ? Math.max(...sizes) : 0,
+    oversized: sizes.filter((s) => s > TX_SIZE_WARN_BYTES).length,
+  };
+}
+
 export function isValidAddress(addr: unknown, chain: string, isTestnet: boolean): boolean {
   if (typeof addr !== 'string') return false;
   const trimmed = addr.trim();
