@@ -638,7 +638,7 @@ export default defineComponent({
     deleteById(id: string): void {
       const target = this.savedScripts.find((r) => r.id === id);
       if (!target) return;
-      // eslint-disable-next-line no-alert
+
       if (!window.confirm(`Delete saved script "${target.label}"?`)) return;
       removeRedeemScript(id);
       this.storeRev += 1;
@@ -670,7 +670,7 @@ export default defineComponent({
       if (!script) return;
       const existing = findByScript(script, this.chain, this.isTestnet);
       const suggested = existing ? existing.label : '';
-      // eslint-disable-next-line no-alert
+
       const label = window.prompt(
         'Label for this redeem script:\n\n'
         + 'Note: this is saved only in this browser\'s local storage. '
@@ -731,15 +731,15 @@ export default defineComponent({
       const network = getNetwork(this.chain, this.isTestnet);
       for (let t = 0; t < txs.length; t += 1) {
         this.progress.current = t + 1;
-        // eslint-disable-next-line no-await-in-loop
+
         if (t > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
         const tx = bitgo.Transaction.fromHex(txs[t], network);
         let quickLoad = true;
-        /* eslint-disable no-await-in-loop, @typescript-eslint/no-explicit-any */
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         for (let i = 0; i < tx.ins.length; i += 1) {
           const hash = reverseHex(tx.ins[i].hash.toString('hex'));
           const { index } = tx.ins[i];
-          // eslint-disable-next-line no-continue
+
           if (hasValue(hash + index)) continue;
           if (quickLoad) {
             quickLoad = false;
@@ -762,7 +762,7 @@ export default defineComponent({
             setValue(hash + index, Math.round(Number(baseTx.data.vout[index].value) * 1e8));
           }
         }
-        /* eslint-enable no-await-in-loop, @typescript-eslint/no-explicit-any */
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
     },
     async signAllLocally(txs: string[]): Promise<string[]> {
@@ -773,13 +773,13 @@ export default defineComponent({
         keyPair = bitgo.ECPair.fromWIF(this.signedTx.privatekey, network);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        if (/checksum/i.test(msg)) throw new Error('Invalid private key checksum');
+        if (/checksum/i.test(msg)) throw new Error('Invalid private key checksum', { cause: e });
         throw e;
       }
       const out: string[] = [];
       for (let t = 0; t < txs.length; t += 1) {
         this.progress.current = t + 1;
-        // eslint-disable-next-line no-await-in-loop
+
         if (t > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
         console.log('Signing tx:', t + 1, '/', txs.length);
         const txb = bitgo.TransactionBuilder.fromTransaction(
