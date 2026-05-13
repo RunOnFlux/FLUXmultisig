@@ -258,6 +258,21 @@
             :class="{ 'tx-size__val--warn': sizeStats.max > TX_SIZE_WARN_BYTES }"
           >{{ formatBytes(sizeStats.max) }}</span>
         </div>
+        <div class="kv__row">
+          <span class="kv__label">Export</span>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="exportJson"
+          >
+            JSON
+          </button>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="exportGzip"
+          >
+            .json.gz
+          </button>
+        </div>
       </div>
       <div
         v-if="unsignedTxList.length > 1"
@@ -272,12 +287,26 @@
             class="tx-size__warn"
           >⚠ {{ sizeStats.oversized }} over {{ formatBytes(TX_SIZE_WARN_BYTES) }}</span>
         </div>
-        <button
-          class="btn btn--primary"
-          @click="copyToClipboard(JSON.stringify(unsignedTxList.map((x) => x.hex)))"
-        >
-          Copy all as JSON array
-        </button>
+        <div class="export-row">
+          <button
+            class="btn btn--primary"
+            @click="copyToClipboard(JSON.stringify(unsignedTxList.map((x) => x.hex)))"
+          >
+            Copy all as JSON array
+          </button>
+          <button
+            class="btn btn--ghost"
+            @click="exportJson"
+          >
+            Export JSON
+          </button>
+          <button
+            class="btn btn--ghost"
+            @click="exportGzip"
+          >
+            Export .json.gz
+          </button>
+        </div>
         <details class="expand">
           <summary class="expand__summary">
             <span class="expand__chevron">›</span>
@@ -327,6 +356,7 @@ import {
   setValue, saveToStorage,
 } from '../composables/utxoCache';
 import { copyToClipboard } from '../composables/copyToast';
+import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
 import {
   truncateHex,
   updateTitanNodeMessage,
@@ -451,6 +481,26 @@ export default defineComponent({
     truncateHex,
     formatBytes,
     hexByteSize,
+    exportFilename(ext: string): string {
+      const env = this.isTestnet ? 'testnet' : 'mainnet';
+      return `unsigned-tx-${this.chain}-${env}-${timestampSlug()}.${ext}`;
+    },
+    exportJson(): void {
+      if (!this.unsignedTxList.length) return;
+      const hexes = this.unsignedTxList.map((t) => t.hex);
+      const payload = JSON.stringify(hexes, null, 2);
+      downloadBlob(
+        new Blob([payload], { type: 'application/json' }),
+        this.exportFilename('json'),
+      );
+    },
+    async exportGzip(): Promise<void> {
+      if (!this.unsignedTxList.length) return;
+      const hexes = this.unsignedTxList.map((t) => t.hex);
+      const payload = JSON.stringify(hexes);
+      const blob = await gzipBlob(payload);
+      downloadBlob(blob, this.exportFilename('json.gz'));
+    },
     toggleAdvanced(): void {
       this.isAdvanced = !this.isAdvanced;
       this.avoidFluxNodeAmounts = this.isAdvanced;

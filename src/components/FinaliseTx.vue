@@ -74,6 +74,13 @@
             Copy
           </button>
         </div>
+        <div class="kv__row tx-size">
+          <span class="kv__label">Size</span>
+          <span
+            class="tx-size__val"
+            :class="{ 'tx-size__val--warn': sizeStats.max > TX_SIZE_WARN_BYTES }"
+          >{{ formatBytes(sizeStats.max) }}</span>
+        </div>
         <div class="kv__row">
           <span class="kv__label">Export</span>
           <button
@@ -94,6 +101,15 @@
         v-if="finalisedTxList.length > 1"
         class="multi"
       >
+        <div class="tx-size tx-size--multi">
+          <span>Avg size <strong>{{ formatBytes(sizeStats.avg) }}</strong></span>
+          <span>Max <strong>{{ formatBytes(sizeStats.max) }}</strong></span>
+          <span>Total <strong>{{ formatBytes(sizeStats.total) }}</strong></span>
+          <span
+            v-if="sizeStats.oversized"
+            class="tx-size__warn"
+          >⚠ {{ sizeStats.oversized }} over {{ formatBytes(TX_SIZE_WARN_BYTES) }}</span>
+        </div>
         <div class="export-row">
           <button
             class="btn btn--primary"
@@ -128,6 +144,10 @@
             >
               <span class="kv__label">Tx {{ index }}</span>
               <code class="kv__val">{{ truncateHex(hex) }}</code>
+              <span
+                class="tx-size__val"
+                :class="{ 'tx-size__val--warn': hexByteSize(hex) > TX_SIZE_WARN_BYTES }"
+              >{{ formatBytes(hexByteSize(hex)) }}</span>
               <button
                 class="btn btn--ghost btn--micro"
                 @click="copyToClipboard(hex)"
@@ -149,7 +169,13 @@ import ProgressBar from './ProgressBar.vue';
 import { copyToClipboard } from '../composables/copyToast';
 import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
 import { pickFile, readTextFromFile, normalizeTxImport } from '../composables/upload';
-import { truncateHex } from '../utils';
+import {
+  truncateHex,
+  hexByteSize,
+  formatBytes,
+  txSizeStats,
+  TX_SIZE_WARN_BYTES,
+} from '../utils';
 
 interface Progress { current: number; total: number }
 
@@ -185,10 +211,18 @@ export default defineComponent({
       if (this.progress.total > 1) return `Finalising ${this.progress.current}/${this.progress.total}`;
       return 'Finalising';
     },
+    sizeStats() {
+      return txSizeStats(this.finalisedTxList);
+    },
+    TX_SIZE_WARN_BYTES() {
+      return TX_SIZE_WARN_BYTES;
+    },
   },
   methods: {
     copyToClipboard,
     truncateHex,
+    formatBytes,
+    hexByteSize,
     async importFromFile(): Promise<void> {
       this.importError = '';
       this.importing = true;
