@@ -299,6 +299,12 @@
         {{ signedTx.hex }}
       </div>
       <div
+        v-if="signNotice"
+        class="alert alert--warn"
+      >
+        {{ signNotice }}
+      </div>
+      <div
         v-if="signedTxList.length === 1"
         class="kv"
       >
@@ -408,15 +414,9 @@ import {
   bitgo,
   getNetwork,
   type Chain,
-  MAINNET_FLUX_EXPLORER,
-  TESTNET_FLUX_EXPLORER,
-  MAINNET_BTC_BLOCKBOOK,
-  TESTNET_BTC_BLOCKBOOK,
+  utxoEndpoint,
   normalizeUtxo,
 } from '../composables/network';
-import {
-  getValue, hasValue, setValue, saveToStorage,
-} from '../composables/utxoCache';
 import { copyToClipboard } from '../composables/copyToast';
 import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
 import { pickFile, readTextFromFile, normalizeTxImport } from '../composables/upload';
@@ -445,9 +445,11 @@ type Phase = 'fetching' | 'signing' | '';
 interface Progress { current: number; total: number; phase: Phase }
 interface SigStatus { sigs: number; threshold: number; pubkeys: number; valid: boolean }
 interface SigStatusGroup { start: number; end: number; status: SigStatus }
+interface FetchResult { values: Map<string, number>; spendable: boolean[]; missing: string[] }
 interface Data {
   signedTx: SignState;
   signedTxList: string[];
+  signNotice: string;
   loading: boolean;
   progress: Progress;
   storeRev: number;
@@ -471,6 +473,7 @@ export default defineComponent({
         rawtx: '', privatekey: '', redeemScript: '', hex: '',
       },
       signedTxList: [],
+      signNotice: '',
       loading: false,
       progress: { current: 0, total: 0, phase: '' },
       storeRev: 0,
@@ -710,6 +713,7 @@ export default defineComponent({
         rawtx: '', privatekey: '', redeemScript: '', hex: '',
       };
       this.signedTxList = [];
+      this.signNotice = '';
       this.loading = false;
       this.progress = { current: 0, total: 0, phase: '' };
       this.importing = false;
@@ -721,51 +725,48 @@ export default defineComponent({
       if (g.start === g.end) return `Tx ${g.start}`;
       return `Tx ${g.start} - Tx ${g.end}`;
     },
-    fluxExplorer(): string {
-      return this.isTestnet ? TESTNET_FLUX_EXPLORER : MAINNET_FLUX_EXPLORER;
-    },
-    btcBlockbook(): string {
-      return this.isTestnet ? TESTNET_BTC_BLOCKBOOK : MAINNET_BTC_BLOCKBOOK;
-    },
-    async fetchInputValues(txs: string[]): Promise<void> {
+    deriveMultisigAddress(): string {
       const network = getNetwork(this.chain, this.isTestnet);
-      for (let t = 0; t < txs.length; t += 1) {
-        this.progress.current = t + 1;
-
-        if (t > 0) await new Promise<void>((r) => { setTimeout(r, 0); });
-        const tx = bitgo.Transaction.fromHex(txs[t], network);
-        let quickLoad = true;
-        /* eslint-disable @typescript-eslint/no-explicit-any */
-        for (let i = 0; i < tx.ins.length; i += 1) {
-          const hash = reverseHex(tx.ins[i].hash.toString('hex'));
-          const { index } = tx.ins[i];
-
-          if (hasValue(hash + index)) continue;
-          if (quickLoad) {
-            quickLoad = false;
-            const baseTx = this.chain === 'flux'
-              ? await axios.get(`${this.fluxExplorer()}/api/tx/${hash}`)
-              : await axios.get(`${this.btcBlockbook()}/api/tx/${hash}`);
-            const addr = baseTx.data.vout[index].scriptPubKey.addresses[0];
-            const utx = this.chain === 'flux'
-              ? await axios.get(`${this.fluxExplorer()}/api/addr/${addr}/utxo`)
-              : await axios.get(`${this.btcBlockbook()}/api/v2/utxo/${addr}`);
-            const utxos: { txid: string; vout: number; satoshis: number }[] = utx.data.map((x: any) => normalizeUtxo(this.chain, x));
-            utxos.forEach((u) => { setValue(u.txid + u.vout, u.satoshis); });
-            if (!hasValue(hash + index)) {
-              setValue(hash + index, Math.round(Number(baseTx.data.vout[index].value) * 1e8));
-            }
-          } else {
-            const baseTx = this.chain === 'flux'
-              ? await axios.get(`${this.fluxExplorer()}/api/tx/${hash}`)
-              : await axios.get(`${this.btcBlockbook()}/api/tx/${hash}`);
-            setValue(hash + index, Math.round(Number(baseTx.data.vout[index].value) * 1e8));
-          }
-        }
-        /* eslint-enable @typescript-eslint/no-explicit-any */
-      }
+      const script = Buffer.from((this.signedTx.redeemScript || '').trim(), 'hex');
+      const scriptPubKey = this.chain === 'flux'
+        ? bitgo.script.scriptHash.output.encode(bitgo.crypto.hash160(script))
+        : bitgo.script.witnessScriptHash.output.encode(bitgo.crypto.sha256(script));
+      return bitgo.address.fromOutputScript(scriptPubKey, network);
     },
-    async signAllLocally(txs: string[]): Promise<string[]> {
+    async fetchInputValues(txs: string[]): Promise<FetchResult> {
+      const network = getNetwork(this.chain, this.isTestnet);
+      const address = this.deriveMultisigAddress();
+      const url = utxoEndpoint(this.chain, this.isTestnet, address);
+      const res = await axios.get(url);
+      const values = new Map<string, number>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.data.forEach((x: any) => {
+        const u = normalizeUtxo(this.chain, x);
+        values.set(u.txid + u.vout, u.satoshis);
+      });
+
+      // For each tx, mark spendable iff every one of its inputs is in /utxo.
+      // Missing inputs mean the output is already spent (or the redeem script
+      // doesn't match), so the broadcast would fail — skip the tx instead.
+      const spendable: boolean[] = [];
+      const missing: string[] = [];
+      txs.forEach((txHex) => {
+        const tx = bitgo.Transaction.fromHex(txHex, network);
+        let ok = true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tx.ins.forEach((input: any) => {
+          const txid = reverseHex(input.hash.toString('hex'));
+          const key = txid + input.index;
+          if (!values.has(key)) {
+            ok = false;
+            missing.push(`${txid}:${input.index}`);
+          }
+        });
+        spendable.push(ok);
+      });
+      return { values, spendable, missing };
+    },
+    async signAllLocally(txs: string[], values: Map<string, number>): Promise<string[]> {
       const network = getNetwork(this.chain, this.isTestnet);
       const hashType = bitgo.Transaction.SIGHASH_ALL;
       let keyPair;
@@ -789,7 +790,7 @@ export default defineComponent({
         for (let i = 0; i < txb.inputs.length; i += 1) {
           const hash = reverseHex(txb.tx.ins[i].hash.toString('hex'));
           const { index } = txb.tx.ins[i];
-          const value = Math.round(Number(getValue(hash + index) || 0));
+          const value = values.get(hash + index) || 0;
           txb.sign(
             i,
             keyPair,
@@ -808,27 +809,46 @@ export default defineComponent({
       this.progress = { current: 0, total: 0, phase: '' };
       try {
         this.signedTx.hex = '';
+        this.signNotice = '';
         this.signedTxList = [];
         const txhex = this.signedTx.rawtx.trim();
         let txs: string[] = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
-        this.progress.total = txs.length;
 
-        // Phase 1 — fetch any utxo values we don't already have cached.
-        // Each tx yields to the event loop so the progress label can repaint.
+        // Phase 1 — single /utxo call for the multisig address.
         this.progress.phase = 'fetching';
-        this.progress.current = 0;
-        await this.fetchInputValues(txs);
+        this.progress.total = 0;
+        const { values, spendable, missing } = await this.fetchInputValues(txs);
 
-        // Phase 2 — sign each tx locally from cached values. No network here.
+        const signableTxs = txs.filter((_, i) => spendable[i]);
+        const skippedCount = txs.length - signableTxs.length;
+
+        if (signableTxs.length === 0) {
+          const sample = missing.slice(0, 3).join(', ');
+          const more = missing.length > 3 ? ` (and ${missing.length - 3} more)` : '';
+          throw new Error(
+            `0 of ${txs.length} transaction(s) are signable. ${missing.length} input(s) not in current UTXOs: ${sample}${more}. `
+            + 'Inputs may already be spent, or the redeem script does not match these inputs.',
+          );
+        }
+
+        // Phase 2 — sign each spendable tx locally from the fetched values.
         this.progress.phase = 'signing';
         this.progress.current = 0;
-        this.signedTxList = await this.signAllLocally(txs);
+        this.progress.total = signableTxs.length;
+        this.signedTxList = await this.signAllLocally(signableTxs, values);
 
-        console.log('All transactions signed');
-        saveToStorage();
+        if (skippedCount > 0) {
+          const sample = missing.slice(0, 3).join(', ');
+          const more = missing.length > 3 ? ` (and ${missing.length - 3} more)` : '';
+          this.signNotice = `Signed ${signableTxs.length} of ${txs.length} transaction(s). `
+            + `Skipped ${skippedCount} whose inputs are not currently spendable `
+            + `(${missing.length} missing input${missing.length === 1 ? '' : 's'}: ${sample}${more}).`;
+        }
+
+        console.log(`Signed ${signableTxs.length}/${txs.length} transactions`);
       } catch (e) {
         console.log(e);
         this.signedTx.hex = e instanceof Error ? e.message : String(e);

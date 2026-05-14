@@ -361,9 +361,6 @@ import {
   type Utxo,
 } from '../composables/network';
 import type { CoinControlState } from './CoinControl.vue';
-import {
-  setValue, saveToStorage,
-} from '../composables/utxoCache';
 import { copyToClipboard } from '../composables/copyToast';
 import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
 import {
@@ -672,7 +669,6 @@ export default defineComponent({
             if (usedUtxos.has(utxos[i].txid + utxos[i].vout)) continue;
 
             usedUtxos.add(utxos[i].txid + utxos[i].vout);
-            setValue(utxos[i].txid + utxos[i].vout, utxos[i].satoshis);
 
             history = history.concat({
               txid: utxos[i].txid,
@@ -747,7 +743,6 @@ export default defineComponent({
           if (this.sendAllFlux || !this.multipleTxes) break;
         }
         console.log('All transactions built');
-        saveToStorage();
       } catch (e) {
         console.log(e);
         this.buildError = e instanceof Error ? e.message : String(e);

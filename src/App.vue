@@ -77,7 +77,6 @@ import FinaliseTx from './components/FinaliseTx.vue';
 import SubmitTx from './components/SubmitTx.vue';
 import Foot from './components/Foot.vue';
 import type { Chain } from './composables/network';
-import { loadFromStorage as loadUtxoCache } from './composables/utxoCache';
 
 interface Data {
   chain: Chain;
@@ -135,7 +134,6 @@ export default defineComponent({
     } catch (e) {
       console.log('Failed to load theme:', e);
     }
-    loadUtxoCache();
   },
   methods: {
     toggleTheme(): void {
@@ -1617,6 +1615,12 @@ html, body {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--accent);
+}
+
+.alert--warn {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  color: var(--warn);
 }
 
 /* table */
