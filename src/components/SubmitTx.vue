@@ -91,6 +91,23 @@
         >
           Copy
         </button>
+        <template v-if="item.ok && submittedTxids[index]">
+          <span class="response-list__explorer-label">Explorer URL</span>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="copyToClipboard(txExplorerUrl(chain, isTestnet, submittedTxids[index]))"
+          >
+            Copy
+          </button>
+          <a
+            class="btn btn--ghost btn--micro"
+            :href="txExplorerUrl(chain, isTestnet, submittedTxids[index])"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open
+          </a>
+        </template>
       </div>
     </div>
   </section>
@@ -98,22 +115,22 @@
 
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
-import axios from 'axios';
 import ProgressBar from './ProgressBar.vue';
 import {
-  TESTNET_FLUX_EXPLORER,
-  MAINNET_BTC_BLOCKBOOK,
-  TESTNET_BTC_BLOCKBOOK,
+  bitgo,
+  getNetwork,
+  txExplorerUrl,
   type Chain,
 } from '../composables/network';
+import { broadcastMany, type SubmitResult } from '../composables/broadcast';
 import { copyToClipboard } from '../composables/copyToast';
 import { pickFile, readTextFromFile, normalizeTxImport } from '../composables/upload';
 
-interface SubmitResult { ok: boolean; status: number | null; data: unknown }
 interface Progress { current: number; total: number }
 interface Data {
   submitedTx: { rawtx: string; hex: string };
   submitedTxList: SubmitResult[];
+  submittedTxids: string[];
   loading: boolean;
   progress: Progress;
   importing: boolean;
@@ -131,6 +148,7 @@ export default defineComponent({
     return {
       submitedTx: { rawtx: '', hex: '' },
       submitedTxList: [],
+      submittedTxids: [],
       loading: false,
       progress: { current: 0, total: 0 },
       importing: false,
@@ -146,14 +164,14 @@ export default defineComponent({
   },
   methods: {
     copyToClipboard,
+    txExplorerUrl,
     async importFromFile(): Promise<void> {
       this.importError = '';
       this.importing = true;
       try {
         const file = await pickFile();
         if (!file) return;
-        const text = await readTextFromFile(file);
-        this.submitedTx.rawtx = normalizeTxImport(text);
+        this.submitedTx.rawtx = normalizeTxImport(await readTextFromFile(file));
       } catch (e) {
         this.importError = e instanceof Error ? e.message : String(e);
       } finally {
@@ -163,6 +181,7 @@ export default defineComponent({
     clear(): void {
       this.submitedTx = { rawtx: '', hex: '' };
       this.submitedTxList = [];
+      this.submittedTxids = [];
       this.loading = false;
       this.progress = { current: 0, total: 0 };
       this.importing = false;
@@ -174,60 +193,30 @@ export default defineComponent({
       try {
         this.submitedTx.hex = '';
         this.submitedTxList = [];
+        this.submittedTxids = [];
         const txhex = this.submitedTx.rawtx.trim();
         let txs: string[] = [txhex];
         if (txhex.startsWith('[')) {
           txs = JSON.parse(txhex);
         }
         this.progress.total = txs.length;
-        let completed = 0;
-        const bumpProgress = () => {
-          completed += 1;
-          this.progress.current = completed;
-        };
-        const rawPromises = txs.map((tx, index) => {
-          if (this.chain === 'flux' && !this.isTestnet) {
-            console.log('Submitting tx:', index + 1, '/', txs.length);
-            return axios({
-              method: 'post',
-              url: 'https://api.runonflux.io/daemon/sendrawtransaction/',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              data: { hexstring: tx, allowhighfees: true },
-            });
+        // Pre-compute txids client-side so the Explorer URL works even when
+        // the broadcast endpoint returns a non-txid body (e.g. Flux daemon
+        // wraps the result in { status, data }).
+        const network = getNetwork(this.chain, this.isTestnet);
+        this.submittedTxids = txs.map((tx) => {
+          try {
+            return bitgo.Transaction.fromHex(tx, network).getId();
+          } catch (_e) {
+            return '';
           }
-          if (this.chain === 'flux' && this.isTestnet) {
-            console.log('Submitting tx:', index + 1, '/', txs.length);
-            return axios({
-              method: 'post',
-              url: `${TESTNET_FLUX_EXPLORER}/api/tx/send`,
-              data: { rawtx: tx },
-            });
-          }
-          console.log('Submitting tx:', index + 1, '/', txs.length);
-          const url = this.isTestnet
-            ? `${TESTNET_BTC_BLOCKBOOK}/api/v2/sendtx/`
-            : `${MAINNET_BTC_BLOCKBOOK}/api/v2/sendtx/`;
-          return axios({ method: 'post', url, data: tx });
         });
-        // Bump the counter every time a request settles, regardless of order.
-        const promises = rawPromises.map((p) => p.finally(bumpProgress));
-        const results = await Promise.allSettled(promises);
-        this.submitedTxList = results.map((result): SubmitResult => {
-          if (result.status === 'fulfilled') {
-            const body = result.value.data;
-            const fluxStyleError = body && typeof body === 'object' && (body as { status?: string }).status === 'error';
-            return {
-              ok: !fluxStyleError,
-              status: result.value.status,
-              data: body,
-            };
-          }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const err = result.reason as any;
-          const httpStatus = (err && err.response && err.response.status) || null;
-          const errData = (err && err.response && err.response.data) || (err && err.message) || String(err);
-          return { ok: false, status: httpStatus, data: errData };
-        });
+        this.submitedTxList = await broadcastMany(
+          this.chain,
+          this.isTestnet,
+          txs,
+          (current) => { this.progress.current = current; },
+        );
         const okCount = this.submitedTxList.filter((x) => x.ok).length;
         console.log(`Submitted ${okCount}/${this.submitedTxList.length} transactions`);
       } catch (e) {

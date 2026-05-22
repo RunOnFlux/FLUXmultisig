@@ -57,6 +57,17 @@
             class="dots"
           />
         </button>
+        <button
+          v-if="finalisedTxList.length"
+          class="btn btn--primary"
+          :disabled="submitting || loading"
+          @click="submit"
+        >
+          {{ submitActionLabel }}<span
+            v-if="submitting"
+            class="dots"
+          />
+        </button>
       </div>
       <ProgressBar
         v-if="loading && progress.total > 1"
@@ -105,6 +116,57 @@
             .json.gz
           </button>
         </div>
+      </div>
+      <ProgressBar
+        v-if="submitting && submitProgress.total > 1"
+        :current="submitProgress.current"
+        :total="submitProgress.total"
+      />
+      <div
+        v-if="submitError"
+        class="alert alert--err"
+      >
+        {{ submitError }}
+      </div>
+      <div
+        v-for="(item, index) in submitResults"
+        :key="`submit-${index}`"
+        class="response-list__row"
+      >
+        <span class="response-list__label">
+          Submit{{ submitResults.length > 1 ? ` ${index}` : '' }}
+        </span>
+        <span
+          class="response-list__status"
+          :class="item.ok ? 'response-list__status--ok' : 'response-list__status--fail'"
+        >
+          <span class="response-list__dot" />
+          <span class="response-list__code">{{ item.status || '—' }}</span>
+          <span>{{ item.ok ? 'OK' : 'Failed' }}</span>
+        </span>
+        <button
+          class="btn btn--ghost btn--micro"
+          @click="copyToClipboard(typeof item.data === 'string' ? item.data : JSON.stringify(item.data))"
+        >
+          Copy
+        </button>
+        <template v-if="item.ok && submittedTxids[index]">
+          <span class="response-list__explorer-label">Explorer URL</span>
+          <button
+            class="btn btn--ghost btn--micro"
+            @click="copyToClipboard(txExplorerUrl(chain, isTestnet, submittedTxids[index]))"
+          >
+            Copy
+          </button>
+          <a
+            class="btn btn--ghost btn--micro"
+            :href="txExplorerUrl(chain, isTestnet, submittedTxids[index])"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open
+          </a>
+        </template>
       </div>
       <div
         v-if="finalisedTxList.length > 1"
@@ -173,7 +235,10 @@
 
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
-import { bitgo, getNetwork, type Chain } from '../composables/network';
+import {
+  bitgo, getNetwork, txExplorerUrl, type Chain,
+} from '../composables/network';
+import { broadcastMany, type SubmitResult } from '../composables/broadcast';
 import ProgressBar from './ProgressBar.vue';
 import { copyToClipboard } from '../composables/copyToast';
 import { downloadBlob, gzipBlob, timestampSlug } from '../composables/download';
@@ -195,6 +260,11 @@ interface Data {
   progress: Progress;
   importing: boolean;
   importError: string;
+  submitting: boolean;
+  submitProgress: Progress;
+  submitResults: SubmitResult[];
+  submittedTxids: string[];
+  submitError: string;
 }
 
 export default defineComponent({
@@ -212,6 +282,11 @@ export default defineComponent({
       progress: { current: 0, total: 0 },
       importing: false,
       importError: '',
+      submitting: false,
+      submitProgress: { current: 0, total: 0 },
+      submitResults: [],
+      submittedTxids: [],
+      submitError: '',
     };
   },
   computed: {
@@ -219,6 +294,11 @@ export default defineComponent({
       if (!this.loading) return 'Finalise';
       if (this.progress.total > 1) return `Finalising ${this.progress.current}/${this.progress.total}`;
       return 'Finalising';
+    },
+    submitActionLabel(): string {
+      if (!this.submitting) return 'Submit';
+      if (this.submitProgress.total > 1) return `Submitting ${this.submitProgress.current}/${this.submitProgress.total}`;
+      return 'Submitting';
     },
     sizeStats() {
       return txSizeStats(this.finalisedTxList);
@@ -232,6 +312,7 @@ export default defineComponent({
     truncateHex,
     formatBytes,
     hexByteSize,
+    txExplorerUrl,
     async importFromFile(): Promise<void> {
       this.importError = '';
       this.importing = true;
@@ -271,10 +352,19 @@ export default defineComponent({
       this.progress = { current: 0, total: 0 };
       this.importing = false;
       this.importError = '';
+      this.submitting = false;
+      this.submitProgress = { current: 0, total: 0 };
+      this.submitResults = [];
+      this.submittedTxids = [];
+      this.submitError = '';
     },
     async finalise(): Promise<void> {
       this.loading = true;
       this.progress = { current: 0, total: 0 };
+      // Reset any prior submit results when starting a fresh finalise pass.
+      this.submitResults = [];
+      this.submittedTxids = [];
+      this.submitError = '';
       try {
         this.finalisedTx.hex = '';
         this.finalisedTxList = [];
@@ -302,6 +392,37 @@ export default defineComponent({
         this.finalisedTx.hex = e instanceof Error ? e.message : String(e);
       } finally {
         this.loading = false;
+      }
+    },
+    async submit(): Promise<void> {
+      if (!this.finalisedTxList.length) return;
+      this.submitting = true;
+      this.submitError = '';
+      this.submitResults = [];
+      this.submittedTxids = [];
+      this.submitProgress = { current: 0, total: this.finalisedTxList.length };
+      try {
+        const network = getNetwork(this.chain, this.isTestnet);
+        this.submittedTxids = this.finalisedTxList.map((hex) => {
+          try {
+            return bitgo.Transaction.fromHex(hex, network).getId();
+          } catch (_e) {
+            return '';
+          }
+        });
+        this.submitResults = await broadcastMany(
+          this.chain,
+          this.isTestnet,
+          this.finalisedTxList,
+          (current) => { this.submitProgress.current = current; },
+        );
+        const okCount = this.submitResults.filter((x) => x.ok).length;
+        console.log(`Submitted ${okCount}/${this.submitResults.length} transactions`);
+      } catch (e) {
+        console.log(e);
+        this.submitError = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.submitting = false;
       }
     },
   },

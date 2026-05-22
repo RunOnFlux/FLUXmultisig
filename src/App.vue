@@ -2039,6 +2039,19 @@ html, body {
 
 .response-list__row > .btn { margin-left: auto; }
 
+/* "Explorer URL" caption that prefixes the copy + open buttons */
+.response-list__explorer-label {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* once we render the explorer label, sibling buttons drop their margin-left */
+.response-list__explorer-label ~ .btn { margin-left: 0; }
+
 /* foot */
 .foot {
   margin-top: 96px;

@@ -34,6 +34,21 @@ export function utxoEndpoint(
   return `${base}/api/v2/utxo/${address}`;
 }
 
+// Public-facing transaction page on the explorer — both the Flux insight-style
+// explorer and the BTC blockbook expose tx detail at /tx/<txid>.
+export function txExplorerUrl(
+  chain: Chain | string,
+  isTestnet: boolean,
+  txid: string,
+): string {
+  if (chain === 'flux') {
+    const base = isTestnet ? TESTNET_FLUX_EXPLORER : MAINNET_FLUX_EXPLORER;
+    return `${base}/tx/${txid}`;
+  }
+  const base = isTestnet ? TESTNET_BTC_BLOCKBOOK : MAINNET_BTC_BLOCKBOOK;
+  return `${base}/tx/${txid}`;
+}
+
 export interface Utxo {
   txid: string;
   vout: number;
