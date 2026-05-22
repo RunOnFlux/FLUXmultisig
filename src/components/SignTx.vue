@@ -318,6 +318,23 @@
             Copy
           </button>
         </div>
+        <div
+          v-if="signedSignatureStatus.length && signedSignatureStatus[0].valid"
+          class="kv__row"
+        >
+          <span class="kv__label">Signatures</span>
+          <span class="sig-status__count">
+            <strong>{{ signedSignatureStatus[0].sigs }}</strong> / {{ signedSignatureStatus[0].threshold }} of {{ signedSignatureStatus[0].pubkeys }}
+          </span>
+          <span
+            v-if="signedSignatureStatus[0].sigs >= signedSignatureStatus[0].threshold"
+            class="sig-status__complete"
+          >✓ complete</span>
+          <span
+            v-else
+            class="sig-status__hint"
+          >{{ signedSignatureStatus[0].threshold - signedSignatureStatus[0].sigs }} more needed</span>
+        </div>
         <div class="kv__row tx-size">
           <span class="kv__label">Size</span>
           <span
@@ -491,85 +508,22 @@ export default defineComponent({
     },
     signatureStatus(): SigStatus[] {
       const raw = (this.signedTx.rawtx || '').trim();
-      const rs = (this.signedTx.redeemScript || '').trim();
-      if (!raw || !rs) {
-        console.log('[sig-status] hidden: rawtx or redeemScript empty', { rawLen: raw.length, rsLen: rs.length });
-        return [];
-      }
+      if (!raw) return [];
       let txs: string[] = [raw];
       if (raw.startsWith('[')) {
         try {
           const arr = JSON.parse(raw);
-          if (!Array.isArray(arr)) {
-            console.log('[sig-status] hidden: rawtx parsed as JSON but not an array');
-            return [];
-          }
+          if (!Array.isArray(arr)) return [];
           txs = arr;
-        } catch (e) {
-          console.log('[sig-status] hidden: rawtx looks like JSON array but failed to parse', e);
+        } catch (_e) {
           return [];
         }
       }
-      let threshold = 0;
-      let pubkeys = 0;
-      try {
-        const buf = Buffer.from(rs, 'hex');
-        const decoded = bitgo.script.multisig.output.decode(buf);
-        if (!decoded || !Array.isArray(decoded.pubKeys)) {
-          console.log('[sig-status] hidden: redeem script does not decode as multisig');
-          return [];
-        }
-        threshold = decoded.m;
-        pubkeys = decoded.pubKeys.length;
-        console.log('[sig-status] redeem script parsed', { m: threshold, n: pubkeys });
-      } catch (e) {
-        console.log('[sig-status] hidden: redeem script does not decode as multisig', e);
-        return [];
-      }
-      const network = getNetwork(this.chain, this.isTestnet);
-      const results: SigStatus[] = [];
-      txs.forEach((txHex, txIdx) => {
-        try {
-          const tx = bitgo.Transaction.fromHex(txHex, network);
-          const inputSigCounts: number[] = [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          tx.ins.forEach((input: any, inputIdx: number) => {
-            let count = 0;
-            if (this.chain === 'bitcoin') {
-              // Segwit: witness is `[<empty>, sig1, sig2, ..., witnessScript]`
-              const witness = input.witness || [];
-              const middle = witness.slice(1, -1);
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              count = middle.filter((b: any) => b && b.length > 0).length;
-              console.log(`[sig-status] tx ${txIdx} input ${inputIdx} witness count`, count, 'witness len:', witness.length);
-            } else {
-              // P2SH multisig scriptSig: `OP_0 sig1 sig2 ... redeemScript`
-              const decompiled = bitgo.script.decompile(input.script);
-              if (decompiled && decompiled.length >= 2) {
-                const middle = decompiled.slice(1, -1);
-                // Real sigs are DER-encoded buffers; placeholders are empty
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                count = middle.filter((item: any) => Buffer.isBuffer(item) && item.length > 1).length;
-              }
-              console.log(`[sig-status] tx ${txIdx} input ${inputIdx} script decompiled len:`, decompiled ? decompiled.length : 0, 'count:', count);
-            }
-            inputSigCounts.push(count);
-          });
-          // Worst-case across inputs — they all must reach threshold.
-          const sigs = inputSigCounts.length ? Math.min(...inputSigCounts) : 0;
-          console.log(`[sig-status] tx ${txIdx} -> sigs=${sigs} threshold=${threshold} pubkeys=${pubkeys}`);
-          results.push({
-            sigs, threshold, pubkeys, valid: true,
-          });
-        } catch (e) {
-          console.log(`[sig-status] tx ${txIdx} parse error`, e);
-          results.push({
-            sigs: 0, threshold, pubkeys, valid: false,
-          });
-        }
-      });
-      console.log('[sig-status] results', results);
-      return results;
+      return this.analyzeSigStatus(txs);
+    },
+    signedSignatureStatus(): SigStatus[] {
+      if (!this.signedTxList.length) return [];
+      return this.analyzeSigStatus(this.signedTxList);
     },
     savedScripts(): SavedRedeemScript[] {
       // read storeRev so this recomputes after save/delete
@@ -634,6 +588,58 @@ export default defineComponent({
     truncateHex,
     formatBytes,
     hexByteSize,
+    analyzeSigStatus(txs: string[]): SigStatus[] {
+      const rs = (this.signedTx.redeemScript || '').trim();
+      if (!rs) return [];
+      let threshold = 0;
+      let pubkeys = 0;
+      try {
+        const decoded = bitgo.script.multisig.output.decode(Buffer.from(rs, 'hex'));
+        if (!decoded || !Array.isArray(decoded.pubKeys)) return [];
+        threshold = decoded.m;
+        pubkeys = decoded.pubKeys.length;
+      } catch (_e) {
+        return [];
+      }
+      const network = getNetwork(this.chain, this.isTestnet);
+      const results: SigStatus[] = [];
+      txs.forEach((txHex) => {
+        try {
+          const tx = bitgo.Transaction.fromHex(txHex, network);
+          const inputSigCounts: number[] = [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          tx.ins.forEach((input: any) => {
+            let count = 0;
+            if (this.chain === 'bitcoin') {
+              // Segwit: witness is `[<empty>, sig1, sig2, ..., witnessScript]`
+              const witness = input.witness || [];
+              const middle = witness.slice(1, -1);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              count = middle.filter((b: any) => b && b.length > 0).length;
+            } else {
+              // P2SH multisig scriptSig: `OP_0 sig1 sig2 ... redeemScript`
+              const decompiled = bitgo.script.decompile(input.script);
+              if (decompiled && decompiled.length >= 2) {
+                const middle = decompiled.slice(1, -1);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                count = middle.filter((item: any) => Buffer.isBuffer(item) && item.length > 1).length;
+              }
+            }
+            inputSigCounts.push(count);
+          });
+          // Worst-case across inputs — they all must reach threshold.
+          const sigs = inputSigCounts.length ? Math.min(...inputSigCounts) : 0;
+          results.push({
+            sigs, threshold, pubkeys, valid: true,
+          });
+        } catch (_e) {
+          results.push({
+            sigs: 0, threshold, pubkeys, valid: false,
+          });
+        }
+      });
+      return results;
+    },
     loadById(id: string): void {
       const found = this.savedScripts.find((r) => r.id === id);
       if (found) this.signedTx.redeemScript = found.script;
