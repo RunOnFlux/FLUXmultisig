@@ -29,28 +29,26 @@ export function pickFile(accept = '.json,.gz,.json.gz,application/json,applicati
     input.accept = accept;
     input.style.display = 'none';
     let settled = false;
-    const cleanup = () => {
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
       if (input.parentNode) input.parentNode.removeChild(input);
+      resolve(file);
     };
     input.addEventListener('change', () => {
-      settled = true;
-      const file = input.files && input.files[0] ? input.files[0] : null;
-      cleanup();
-      resolve(file);
+      finish(input.files && input.files[0] ? input.files[0] : null);
     });
     // 'cancel' is supported in modern browsers; fallback to focus heuristic.
-    input.addEventListener('cancel', () => {
-      settled = true;
-      cleanup();
-      resolve(null);
-    });
+    input.addEventListener('cancel', () => finish(null));
+    // When the window regains focus after the dialog closes, the picked
+    // file (if any) is already on input.files synchronously — read it
+    // directly rather than assuming a cancel. On Chrome the focus event
+    // can beat the change event, so resolving null here would silently
+    // drop a valid selection.
     window.addEventListener('focus', () => {
       setTimeout(() => {
-        if (!settled) {
-          cleanup();
-          resolve(null);
-        }
-      }, 250);
+        finish(input.files && input.files[0] ? input.files[0] : null);
+      }, 300);
     }, { once: true });
     document.body.appendChild(input);
     input.click();
