@@ -47,8 +47,10 @@
         :is-testnet="isTestnet"
         :show-private-key="showPrivateKey"
         @toggle-show-private-key="showPrivateKey = !showPrivateKey"
+        @send-to-finalise="onSendToFinalise"
       />
       <FinaliseTx
+        ref="finaliseTx"
         :chain="chain"
         :is-testnet="isTestnet"
       />
@@ -146,6 +148,10 @@ export default defineComponent({
     },
     toggleChain(): void {
       this.chain = this.chain === 'flux' ? 'bitcoin' : 'flux';
+    },
+    onSendToFinalise(payload: string): void {
+      const fin = this.$refs.finaliseTx as InstanceType<typeof FinaliseTx> | undefined;
+      if (fin) fin.loadRawTx(payload);
     },
   },
 });

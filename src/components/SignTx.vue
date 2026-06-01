@@ -286,6 +286,15 @@
             class="dots"
           />
         </button>
+        <button
+          v-if="signedTxList.length && signedComplete"
+          class="btn btn--primary"
+          type="button"
+          title="Send the signed transaction to the Finalise step"
+          @click="sendToFinalise"
+        >
+          Finalise →
+        </button>
       </div>
       <ProgressBar
         v-if="loading && progress.total > 1"
@@ -483,7 +492,7 @@ export default defineComponent({
     isTestnet: { type: Boolean, required: true },
     showPrivateKey: { type: Boolean, required: true },
   },
-  emits: ['toggle-show-private-key'],
+  emits: ['toggle-show-private-key', 'send-to-finalise'],
   data(): Data {
     return {
       signedTx: {
@@ -524,6 +533,12 @@ export default defineComponent({
     signedSignatureStatus(): SigStatus[] {
       if (!this.signedTxList.length) return [];
       return this.analyzeSigStatus(this.signedTxList);
+    },
+    signedComplete(): boolean {
+      // True only when every signed tx has reached its signature threshold.
+      const list = this.signedSignatureStatus;
+      if (!list.length) return false;
+      return list.every((s) => s.valid && s.sigs >= s.threshold);
     },
     savedScripts(): SavedRedeemScript[] {
       // read storeRev so this recomputes after save/delete
@@ -713,6 +728,15 @@ export default defineComponent({
       const payload = JSON.stringify(this.signedTxList);
       const blob = await gzipBlob(payload);
       downloadBlob(blob, this.exportFilename('json.gz'));
+    },
+    sendToFinalise(): void {
+      if (!this.signedTxList.length) return;
+      // A single tx goes across as bare hex; multiples as a JSON array —
+      // the Finalise step accepts either form.
+      const payload = this.signedTxList.length === 1
+        ? this.signedTxList[0]
+        : JSON.stringify(this.signedTxList);
+      this.$emit('send-to-finalise', payload);
     },
     clear(): void {
       this.signedTx = {

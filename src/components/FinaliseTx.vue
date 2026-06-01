@@ -327,6 +327,21 @@ export default defineComponent({
         this.importing = false;
       }
     },
+    loadRawTx(rawtx: string): void {
+      // Receive a signed transaction handed over from the Sign step, clear any
+      // stale output, and bring this panel into view so the next action is obvious.
+      this.finalisedTx = { rawtx, hex: '' };
+      this.finalisedTxList = [];
+      this.submitResults = [];
+      this.submittedTxids = [];
+      this.submitError = '';
+      this.$nextTick(() => {
+        const el = this.$el as HTMLElement | undefined;
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    },
     exportFilename(ext: string): string {
       const env = this.isTestnet ? 'testnet' : 'mainnet';
       return `finalised-tx-${this.chain}-${env}-${timestampSlug()}.${ext}`;
