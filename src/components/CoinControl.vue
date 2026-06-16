@@ -1,5 +1,8 @@
 <template>
-  <section class="panel">
+  <section
+    id="coin-control"
+    class="panel"
+  >
     <header class="panel__head">
       <span class="panel__num">03</span>
       <h2 class="panel__title">

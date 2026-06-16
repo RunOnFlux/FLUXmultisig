@@ -29,8 +29,10 @@
   },
   "homepage": "https://github.com/RunOnFlux/FLUXmultisig#readme",
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "axios": "^1.7.7",
     "bitgo-utxo-lib": "github:zelcore-io/bitgo-utxo-lib#ff29c336f56f50b91564bd907141cb687f1d8736",
+    "qrcode": "^1.5.4",
     "vue": "^3.5.13"
   },
   "devDependencies": {

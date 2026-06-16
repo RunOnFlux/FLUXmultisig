@@ -20,6 +20,10 @@
     />
     <main class="container">
       <Hero />
+      <Wallet
+        :chain="chain"
+        :is-testnet="isTestnet"
+      />
       <Keypair
         :chain="chain"
         :is-testnet="isTestnet"
@@ -69,6 +73,7 @@ import TopBar from './components/TopBar.vue';
 import TestnetStripe from './components/TestnetStripe.vue';
 import CopyToast from './components/CopyToast.vue';
 import Hero from './components/Hero.vue';
+import Wallet from './components/Wallet.vue';
 import Keypair from './components/Keypair.vue';
 import Multisig from './components/Multisig.vue';
 import CoinControl, { type CoinControlState } from './components/CoinControl.vue';
@@ -95,6 +100,7 @@ export default defineComponent({
     TestnetStripe,
     CopyToast,
     Hero,
+    Wallet,
     Keypair,
     Multisig,
     CoinControl,
